@@ -1,0 +1,529 @@
+openapi: 3.0.3
+info:
+  title: FiguMatch 2026 API - OpenAPI Specification
+  description: >
+    Especificación de la API de FiguMatch 2026 basada en la API REST de PostgREST expuesta por Supabase.
+    Permite acceder a los catálogos territoriales de Argentina, gestionar perfiles de coleccionistas,
+    su stock de figuritas, y procesar propuestas de intercambio.
+  version: 1.0.0
+servers:
+  - url: https://itbiuvpnoxrpepxnjxre.supabase.co/rest/v1
+    description: Servidor de Supabase (PostgREST)
+security:
+  - apiKey: []
+    bearerAuth: []
+paths:
+  /provincias:
+    get:
+      summary: Obtener el listado de provincias
+      description: Recupera las provincias de la República Argentina, ordenadas alfabéticamente.
+      parameters:
+        - name: select
+          in: query
+          description: Campos a seleccionar (ej. id,nombre)
+          required: false
+          schema:
+            type: string
+            default: "id,nombre"
+        - name: order
+          in: query
+          description: Ordenamiento de campos (ej. nombre.asc)
+          required: false
+          schema:
+            type: string
+            default: "nombre.asc"
+      responses:
+        "200":
+          description: Listado de provincias obtenido con éxito
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Provincia"
+
+  /localidades:
+    get:
+      summary: Obtener el listado de localidades
+      description: Recupera las localidades de una provincia específica.
+      parameters:
+        - name: select
+          in: query
+          description: Campos a seleccionar
+          required: false
+          schema:
+            type: string
+            default: "id,nombre"
+        - name: provincia_id
+          in: query
+          description: Operador de filtro para provincia_id (ej. eq.2)
+          required: true
+          schema:
+            type: string
+        - name: order
+          in: query
+          description: Ordenamiento de campos (ej. nombre.asc)
+          required: false
+          schema:
+            type: string
+            default: "nombre.asc"
+      responses:
+        "200":
+          description: Listado de localidades obtenido con éxito
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Localidad"
+
+  /escuelas:
+    get:
+      summary: Buscar escuelas con autocompletado
+      description: Recupera escuelas filtradas por localidad y coincidencia parcial de nombre (ILike).
+      parameters:
+        - name: select
+          in: query
+          description: Campos a seleccionar
+          required: false
+          schema:
+            type: string
+            default: "id,nombre,domicilio"
+        - name: localidad_id
+          in: query
+          description: Filtro exacto por ID de localidad (ej. eq.430)
+          required: true
+          schema:
+            type: string
+        - name: nombre
+          in: query
+          description: Filtro de búsqueda difusa insensible a mayúsculas (ej. ilike.*nacional*)
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Límite máximo de resultados sugeridos
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Listado de escuelas sugeridas obtenido con éxito
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Escuela"
+
+  /perfiles:
+    get:
+      summary: Consultar perfiles de coleccionistas
+      description: Obtiene el perfil propio o de otros coleccionistas activos en la red.
+      parameters:
+        - name: select
+          in: query
+          description: Campos a seleccionar con relaciones unidas (ej. id,nombre,provincias(nombre),localidades(nombre),escuelas(nombre))
+          required: false
+          schema:
+            type: string
+        - name: id
+          in: query
+          description: Filtro por ID de perfil (ej. eq.uuid o neq.uuid)
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Perfil(es) obtenido(s) con éxito
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PerfilDetallado"
+    post:
+      summary: Crear o actualizar un perfil (Upsert)
+      description: Inserta un nuevo perfil de coleccionista o actualiza los datos existentes del dueño.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PerfilInput"
+      responses:
+        "201":
+          description: Perfil creado o actualizado con éxito
+        "400":
+          description: Error en los datos enviados
+    patch:
+      summary: Modificar campos específicos del perfil
+      description: Actualiza de forma parcial el perfil del usuario (ej. porcentaje de completitud).
+      parameters:
+        - name: id
+          in: query
+          description: Filtro exacto por ID de perfil (ej. eq.uuid)
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                completitud:
+                  type: integer
+                  minimum: 0
+                  maximum: 100
+      responses:
+        "204":
+          description: Campos actualizados con éxito
+
+  /colecciones:
+    get:
+      summary: Obtener colecciones de figuritas
+      description: Consulta el inventario de figuritas de un perfil o de toda la red para cruzar coincidencias.
+      parameters:
+        - name: select
+          in: query
+          description: Campos a seleccionar
+          required: false
+          schema:
+            type: string
+            default: "perfil_id,sticker_id,cantidad"
+        - name: perfil_id
+          in: query
+          description: Filtro por ID de perfil (ej. eq.uuid)
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Inventario de figuritas recuperado con éxito
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ColeccionItem"
+    post:
+      summary: Upsert de colecciones de figuritas
+      description: Inserta o actualiza la cantidad de una figurita de la colección del usuario.
+      headers:
+        Prefer:
+          schema:
+            type: string
+            example: resolution=merge-duplicates
+          description: Encabezado de Supabase para manejar upserts en claves duplicadas.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/ColeccionInput"
+      responses:
+        "201":
+          description: Figurita(s) guardada(s) con éxito en la colección
+
+  /propuestas:
+    get:
+      summary: Obtener propuestas de intercambio
+      description: Recupera propuestas de intercambio donde el usuario participa como solicitante o receptor.
+      parameters:
+        - name: select
+          in: query
+          description: Campos y uniones de relaciones a traer
+          required: false
+          schema:
+            type: string
+        - name: or
+          in: query
+          description: Filtro lógico OR (ej. (solicitante_id.eq.uuid,receptor_id.eq.uuid))
+          required: true
+          schema:
+            type: string
+        - name: order
+          in: query
+          description: Criterio de orden (ej. created_at.desc)
+          required: false
+          schema:
+            type: string
+            default: "created_at.desc"
+      responses:
+        "200":
+          description: Propuestas recuperadas con éxito
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PropuestaDetallada"
+    post:
+      summary: Crear una propuesta de intercambio
+      description: Registra una nueva propuesta con la lista de figuritas ofrecidas y solicitadas.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PropuestaInput"
+      responses:
+        "201":
+          description: Propuesta creada con éxito
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Propuesta"
+    patch:
+      summary: Cambiar estado de propuesta
+      description: Modifica el estado de una propuesta (ej. de pendiente a aceptado, rechazado o cancelado).
+      parameters:
+        - name: id
+          in: query
+          description: Filtro por ID de propuesta (ej. eq.uuid)
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                estado:
+                  type: string
+                  enum: [pendiente, aceptado, rechazado, cancelado]
+      responses:
+        "204":
+          description: Estado de propuesta actualizado con éxito
+
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: apikey
+      description: Clave anónima pública de Supabase (anon key)
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token de autenticación del usuario firmado por Supabase Auth
+  schemas:
+    Provincia:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 12
+        nombre:
+          type: string
+          example: "Santa Fe"
+    Localidad:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 430
+        nombre:
+          type: string
+          example: "Rosario"
+    Escuela:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 10452
+        cueanexo:
+          type: string
+          example: "820012400"
+        nombre:
+          type: string
+          example: "ESCUELA NRO 6018 DOCTOR VICTORIANO MONTES"
+        domicilio:
+          type: string
+          example: "AV SAN MARTIN 1234"
+        sector:
+          type: string
+          example: "Estatal"
+        ambito:
+          type: string
+          example: "Urbano"
+    PerfilInput:
+      type: object
+      required:
+        - id
+        - nombre
+        - provincia_id
+        - localidad_id
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+          maxLength: 100
+        provincia_id:
+          type: integer
+        localidad_id:
+          type: integer
+        escuela_id:
+          type: integer
+          nullable: true
+        completitud:
+          type: integer
+          default: 0
+    PerfilDetallado:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        provincia_id:
+          type: integer
+        localidad_id:
+          type: integer
+        escuela_id:
+          type: integer
+          nullable: true
+        completitud:
+          type: integer
+        provincias:
+          type: array
+          items:
+            type: object
+            properties:
+              nombre:
+                type: string
+        localidades:
+          type: array
+          items:
+            type: object
+            properties:
+              nombre:
+                type: string
+        escuelas:
+          type: array
+          items:
+            type: object
+            properties:
+              nombre:
+                type: string
+    ColeccionItem:
+      type: object
+      properties:
+        perfil_id:
+          type: string
+          format: uuid
+        sticker_id:
+          type: string
+          example: "ARG10"
+        cantidad:
+          type: integer
+          example: 2
+    ColeccionInput:
+      type: object
+      required:
+        - perfil_id
+        - sticker_id
+        - cantidad
+      properties:
+        perfil_id:
+          type: string
+          format: uuid
+        sticker_id:
+          type: string
+        cantidad:
+          type: integer
+          minimum: 0
+    Propuesta:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        solicitante_id:
+          type: string
+          format: uuid
+        receptor_id:
+          type: string
+          format: uuid
+        ofrece:
+          type: array
+          items:
+            type: string
+          example: ["FWC00", "ARG10"]
+        solicita:
+          type: array
+          items:
+            type: string
+          example: ["ESP11"]
+        estado:
+          type: string
+          enum: [pendiente, aceptado, rechazado, cancelado]
+        created_at:
+          type: string
+          format: date-time
+    PropuestaInput:
+      type: object
+      required:
+        - solicitante_id
+        - receptor_id
+        - ofrece
+        - solicita
+      properties:
+        solicitante_id:
+          type: string
+          format: uuid
+        receptor_id:
+          type: string
+          format: uuid
+        ofrece:
+          type: array
+          items:
+            type: string
+        solicita:
+          type: array
+          items:
+            type: string
+    PropuestaDetallada:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        solicitante_id:
+          type: string
+          format: uuid
+        receptor_id:
+          type: string
+          format: uuid
+        ofrece:
+          type: array
+          items:
+            type: string
+        solicita:
+          type: array
+          items:
+            type: string
+        estado:
+          type: string
+        created_at:
+          type: string
+        solicitante:
+          type: array
+          items:
+            $ref: "#/components/schemas/PerfilDetallado"
+        receptor:
+          type: array
+          items:
+            $ref: "#/components/schemas/PerfilDetallado"
