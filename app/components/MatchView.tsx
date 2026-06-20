@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { MapPin, School, ArrowRight, BookOpen, Send, User, ChevronRight, X, ArrowUpDown, RefreshCw, Check } from "lucide-react";
+import { MapPin, School, ArrowRight, BookOpen, Send, User, ChevronRight, X, ArrowUpDown, RefreshCw, Check, Search, UserX } from "lucide-react";
 import AlbumView from "./AlbumView";
 
 interface Collector {
@@ -9,13 +9,15 @@ interface Collector {
   nombre: string;
   provincia_id: number;
   provincia: string;
+  departamento_id: number;
+  departamento: string;
   localidad_id: number;
   ciudad: string;
   escuela_id: number | null;
   escuela_nombre: string;
   completitud: number;
   distancia: number; // Simulated distance in meters/km
-  proximityLevel: 1 | 2 | 3 | 4; // 1 = Same school, 2 = Same city, 3 = Same province, 4 = National
+  proximityLevel: 1 | 2 | 3 | 4 | 5; // 1 = Same school, 2 = Same city, 3 = Same departamento, 4 = Same province, 5 = National
   collection: { [stickerId: string]: number };
 }
 
@@ -26,12 +28,14 @@ interface CollectorWithMatch extends Collector {
 }
 
 interface MatchViewProps {
-  myProfile: any;
+  myProfile: any | null;
   myCollection: { [stickerId: string]: number };
-  collectors: Collector[];
+  collectors: any[];
   onProposeTrade: (receptorId: string, ofrece: string[], solicita: string[]) => void;
   loading: boolean;
   onRefresh: () => void;
+  perfectMatchStickerId?: string | null;
+  onClearPerfectMatch?: () => void;
 }
 
 export default function MatchView({
@@ -40,7 +44,9 @@ export default function MatchView({
   collectors,
   onProposeTrade,
   loading,
-  onRefresh
+  onRefresh,
+  perfectMatchStickerId = null,
+  onClearPerfectMatch
 }: MatchViewProps) {
   const [selectedCollectorForAlbum, setSelectedCollectorForAlbum] = useState<Collector | null>(null);
   const [selectedCollectorForTrade, setSelectedCollectorForTrade] = useState<CollectorWithMatch | null>(null);
@@ -49,9 +55,34 @@ export default function MatchView({
   const [selectedToGive, setSelectedToGive] = useState<string[]>([]);
   const [selectedToReceive, setSelectedToReceive] = useState<string[]>([]);
 
+  // Handle Perfect Match filter
+  const displayedCollectors = useMemo(() => {
+    if (!perfectMatchStickerId) return collectors;
+
+    return collectors.filter(c => {
+      // Condición 1: Tienen repetida la figurita objetivo
+      const tienenObjetivo = (c.collection[perfectMatchStickerId] || 0) > 1;
+      if (!tienenObjetivo) return false;
+
+      // Condición 2: Necesitan al menos UNA figurita que yo tenga repetida
+      let necesitanMia = false;
+      for (const [stId, myQty] of Object.entries(myCollection)) {
+        if (myQty > 1) {
+          const theirQty = c.collection[stId] || 0;
+          if (theirQty === 0) {
+            necesitanMia = true;
+            break;
+          }
+        }
+      }
+
+      return necesitanMia;
+    });
+  }, [collectors, perfectMatchStickerId, myCollection]);
+
   // 1. Calculate matching details for each collector
   const collectorsWithMatches = useMemo(() => {
-    return collectors.map(c => {
+    return displayedCollectors.map(c => {
       // Find what stickers I have repeated that he lacks
       const iCanGive: string[] = [];
       // Find what stickers he has repeated that I lack
@@ -78,7 +109,7 @@ export default function MatchView({
         matchScore: Math.min(iCanGive.length, heCanGive.length) // potential mutual trades
       };
     });
-  }, [collectors, myCollection]);
+  }, [displayedCollectors, myCollection]);
 
   // Open trade modal and pre-set selections
   const openTradeModal = (collector: any) => {
@@ -111,7 +142,7 @@ export default function MatchView({
       <div className="flex items-center justify-between border-b border-zinc-200 pb-3 dark:border-zinc-800">
         <div>
           <h2 className="text-xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50">
-            Coleccionistas Activos
+            Encontrar Coleccionistas
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Ordenados por cercanía para facilitar el intercambio presencial.
@@ -119,23 +150,46 @@ export default function MatchView({
         </div>
         <button
           onClick={onRefresh}
-          disabled={loading}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 hover:text-zinc-800 transition disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+          className="flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-bold text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-850"
         >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-emerald-500" : ""}`} />
+          Actualizar
         </button>
       </div>
 
-      {loading ? (
+      {perfectMatchStickerId && (
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-indigo-200 bg-indigo-50 p-3 dark:border-indigo-900 dark:bg-indigo-950/30">
+          <div className="flex items-center gap-2">
+            <Search className="h-4.5 w-4.5 text-indigo-500" />
+            <div>
+              <h4 className="text-xs font-extrabold text-indigo-900 dark:text-indigo-300">
+                Filtro de Match Perfecto activo: <span className="text-indigo-600 dark:text-indigo-400">{perfectMatchStickerId}</span>
+              </h4>
+              <p className="text-[10px] font-medium text-indigo-700/80 dark:text-indigo-400/80">
+                Mostrando usuarios que tienen repetida la {perfectMatchStickerId} y que necesitan alguna de tus repetidas.
+              </p>
+            </div>
+          </div>
+          <button 
+            onClick={onClearPerfectMatch}
+            className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/60 text-indigo-700 hover:bg-white dark:bg-zinc-900/60 dark:text-indigo-300 dark:hover:bg-zinc-900 transition"
+            title="Quitar filtro"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {loading && collectors.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20">
-          <LoaderSpinner className="h-8 w-8 text-emerald-500 animate-spin" />
+          <div className="h-8 w-8 text-emerald-500 animate-spin border-4 border-emerald-500/30 border-t-emerald-500 rounded-full" />
           <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">Buscando coleccionistas cercanos...</p>
         </div>
       ) : collectorsWithMatches.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 py-16 text-center dark:border-zinc-800">
-          <User className="h-10 w-10 text-zinc-400" />
-          <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
-            No se encontraron otros coleccionistas activos en este momento.
+          <UserX className="h-10 w-10 text-zinc-400" />
+          <p className="mt-sm text-sm text-zinc-500 dark:text-zinc-400">
+            {perfectMatchStickerId ? "No hay usuarios que cumplan esta doble coincidencia de match." : "No se encontraron otros coleccionistas activos en este momento."}
           </p>
         </div>
       ) : (
@@ -155,6 +209,10 @@ export default function MatchView({
               proximityClass = "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/30 dark:text-teal-400 dark:border-teal-900";
               distanceStr = `A ${c.distancia.toFixed(1)} km`;
             } else if (c.proximityLevel === 3) {
+              proximityTag = "Mismo Departamento";
+              proximityClass = "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-400 dark:border-purple-900";
+              distanceStr = `A ${c.distancia.toFixed(1)} km`;
+            } else if (c.proximityLevel === 4) {
               proximityTag = "Misma Provincia";
               proximityClass = "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900";
               distanceStr = `A ${c.distancia.toFixed(0)} km`;
@@ -175,7 +233,7 @@ export default function MatchView({
                     <div>
                       <h4 className="font-extrabold text-zinc-900 dark:text-zinc-50">{c.nombre}</h4>
                       <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                        {c.ciudad}, {c.provincia}
+                        {c.ciudad}, {c.departamento}, {c.provincia}
                         {c.escuela_nombre ? ` • ${c.escuela_nombre}` : ""}
                       </p>
                     </div>

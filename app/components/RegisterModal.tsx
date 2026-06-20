@@ -8,19 +8,24 @@ interface RegisterModalProps {
   currentProfile: any | null;
   onSave: (profileData: any) => void;
   isOpen: boolean;
+  onClose?: () => void;
 }
 
-export default function RegisterModal({ currentProfile, onSave, isOpen }: RegisterModalProps) {
+export default function RegisterModal({ currentProfile, onSave, isOpen, onClose }: RegisterModalProps) {
   const [nombre, setNombre] = useState("");
+  const [idPublico, setIdPublico] = useState("");
   const [provinciaId, setProvinciaId] = useState<number | "">("");
+  const [departamentoId, setDepartamentoId] = useState<number | "">("");
   const [localidadId, setLocalidadId] = useState<number | "">("");
   const [escuelaId, setEscuelaId] = useState<number | null>(null);
   const [noEscuela, setNoEscuela] = useState(false);
 
   // Lists from Supabase
   const [provincias, setProvincias] = useState<any[]>([]);
+  const [departamentos, setDepartamentos] = useState<any[]>([]);
   const [localidades, setLocalidades] = useState<any[]>([]);
   const [loadingProvs, setLoadingProvs] = useState(false);
+  const [loadingDepts, setLoadingDepts] = useState(false);
   const [loadingLocs, setLoadingLocs] = useState(false);
 
   // School Search autocomplete
@@ -49,7 +54,9 @@ export default function RegisterModal({ currentProfile, onSave, isOpen }: Regist
       fetchProvincias();
       if (currentProfile) {
         setNombre(currentProfile.nombre || "");
+        setIdPublico(currentProfile.id_publico || "");
         setProvinciaId(currentProfile.provincia_id || "");
+        setDepartamentoId(currentProfile.departamento_id || "");
         setLocalidadId(currentProfile.localidad_id || "");
         setEscuelaId(currentProfile.escuela_id || null);
         setNoEscuela(!currentProfile.escuela_id);
@@ -63,7 +70,10 @@ export default function RegisterModal({ currentProfile, onSave, isOpen }: Regist
         }
       } else {
         setNombre("");
+        setIdPublico("");
         setProvinciaId("");
+        setDepartamentoId("");
+        setLocalidades([]);
         setLocalidadId("");
         setEscuelaId(null);
         setNoEscuela(false);
@@ -90,26 +100,72 @@ export default function RegisterModal({ currentProfile, onSave, isOpen }: Regist
     }
   };
 
-  // Load localities when province changes
+  // Load departments when province changes
   useEffect(() => {
     if (provinciaId) {
-      fetchLocalidades(Number(provinciaId));
+      fetchDepartamentos(Number(provinciaId));
+      if (!currentProfile || currentProfile.provincia_id !== Number(provinciaId)) {
+        setDepartamentoId("");
+        setLocalidades([]);
+        setLocalidadId("");
+        setEscuelaId(null);
+        setSchoolQuery("");
+        setSelectedSchoolName("");
+      }
+    } else {
+      setDepartamentos([]);
+      setDepartamentoId("");
+      setLocalidades([]);
+      setLocalidadId("");
+      setEscuelaId(null);
+      setSchoolQuery("");
+      setSelectedSchoolName("");
+    }
+  }, [provinciaId, currentProfile]);
+
+  // Load localities when department changes
+  useEffect(() => {
+    if (departamentoId) {
+      fetchLocalidades(Number(departamentoId));
+      if (!currentProfile || currentProfile.departamento_id !== Number(departamentoId)) {
+        setLocalidadId("");
+        setEscuelaId(null);
+        setSchoolQuery("");
+        setSelectedSchoolName("");
+      }
     } else {
       setLocalidades([]);
       setLocalidadId("");
+      setEscuelaId(null);
+      setSchoolQuery("");
+      setSelectedSchoolName("");
     }
-    setEscuelaId(null);
-    setSchoolQuery("");
-    setSelectedSchoolName("");
-  }, [provinciaId]);
+  }, [departamentoId, currentProfile]);
 
-  const fetchLocalidades = async (provId: number) => {
+  const fetchDepartamentos = async (provId: number) => {
+    setLoadingDepts(true);
+    try {
+      const { data, error } = await supabase
+        .from("departamentos")
+        .select("id, nombre")
+        .eq("provincia_id", provId)
+        .order("nombre");
+      if (error) throw error;
+      setDepartamentos(data || []);
+    } catch (err) {
+      console.error("Error fetching departments:", err);
+    } finally {
+      setLoadingDepts(false);
+    }
+  };
+
+  const fetchLocalidades = async (deptId: number) => {
     setLoadingLocs(true);
     try {
       const { data, error } = await supabase
         .from("localidades")
         .select("id, nombre")
-        .eq("provincia_id", provId)
+        .eq("departamento_id", deptId)
         .order("nombre");
       if (error) throw error;
       setLocalidades(data || []);
@@ -170,17 +226,21 @@ export default function RegisterModal({ currentProfile, onSave, isOpen }: Regist
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombre.trim() || !provinciaId || !localidadId || (!escuelaId && !noEscuela)) {
+    if (!nombre.trim() || !idPublico.trim() || !provinciaId || !departamentoId || !localidadId || (!escuelaId && !noEscuela)) {
       return;
     }
 
     const selectedProv = provincias.find(p => p.id === Number(provinciaId));
+    const selectedDept = departamentos.find(d => d.id === Number(departamentoId));
     const selectedLoc = localidades.find(l => l.id === Number(localidadId));
 
     onSave({
       nombre: nombre.trim(),
+      id_publico: idPublico.trim().toLowerCase(),
       provincia_id: Number(provinciaId),
       provincia: selectedProv?.nombre || "",
+      departamento_id: Number(departamentoId),
+      departamento: selectedDept?.nombre || "",
       localidad_id: Number(localidadId),
       ciudad: selectedLoc?.nombre || "",
       escuela_id: noEscuela ? null : escuelaId,
@@ -223,6 +283,28 @@ export default function RegisterModal({ currentProfile, onSave, isOpen }: Regist
             </div>
           </div>
 
+          {/* ID Publico Input */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1.5">
+              ID Público (para añadir amigos)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-2.5 text-zinc-400 font-bold">@</span>
+              <input
+                type="text"
+                required
+                value={idPublico}
+                onChange={e => {
+                  // Solo permitir alfanuméricos y guiones bajos
+                  const val = e.target.value.replace(/[^a-zA-Z0-9_]/g, '');
+                  setIdPublico(val);
+                }}
+                placeholder="ej. martin123"
+                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 pl-8 pr-4 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-emerald-500 focus:bg-white dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
           {/* Provincia Selector */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1.5">
@@ -249,6 +331,33 @@ export default function RegisterModal({ currentProfile, onSave, isOpen }: Regist
             </div>
           </div>
 
+          {/* Departamento / Partido Selector */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1.5">
+              Departamento / Partido
+            </label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-2.5 h-4.5 w-4.5 text-zinc-400" />
+              <select
+                required
+                disabled={!provinciaId}
+                value={departamentoId}
+                onChange={e => setDepartamentoId(Number(e.target.value))}
+                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 pl-10 pr-4 text-sm text-zinc-900 outline-none transition focus:border-emerald-500 focus:bg-white disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:border-emerald-500"
+              >
+                <option value="">Selecciona tu departamento</option>
+                {departamentos.map(d => (
+                  <option key={d.id} value={d.id}>
+                    {d.nombre}
+                  </option>
+                ))}
+              </select>
+              {loadingDepts && (
+                <Loader2 className="absolute right-3 top-2.5 h-4.5 w-4.5 animate-spin text-zinc-400" />
+              )}
+            </div>
+          </div>
+
           {/* Localidad Selector */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1.5">
@@ -258,7 +367,7 @@ export default function RegisterModal({ currentProfile, onSave, isOpen }: Regist
               <MapPin className="absolute left-3 top-2.5 h-4.5 w-4.5 text-zinc-400" />
               <select
                 required
-                disabled={!provinciaId}
+                disabled={!departamentoId}
                 value={localidadId}
                 onChange={e => setLocalidadId(Number(e.target.value))}
                 className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 pl-10 pr-4 text-sm text-zinc-900 outline-none transition focus:border-emerald-500 focus:bg-white disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:border-emerald-500"
@@ -354,15 +463,26 @@ export default function RegisterModal({ currentProfile, onSave, isOpen }: Regist
           )}
 
           {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={
-              !nombre.trim() || !provinciaId || !localidadId || (!escuelaId && !noEscuela)
-            }
-            className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:from-emerald-700 hover:to-teal-600 disabled:opacity-50 disabled:pointer-events-none dark:shadow-emerald-950/20 mt-4"
-          >
-            {currentProfile ? "Guardar Cambios" : "Comenzar"}
-          </button>
+          <div className="flex gap-3 mt-4">
+            {currentProfile && onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-1/3 rounded-xl border border-zinc-200 bg-white py-3 text-sm font-bold text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-850"
+              >
+                Cancelar
+              </button>
+            )}
+            <button
+              type="submit"
+              disabled={
+                !nombre.trim() || !idPublico.trim() || !provinciaId || !departamentoId || !localidadId || (!escuelaId && !noEscuela)
+              }
+              className={`${currentProfile && onClose ? "w-2/3" : "w-full"} rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:from-emerald-700 hover:to-teal-600 disabled:opacity-50 disabled:pointer-events-none dark:shadow-emerald-950/20`}
+            >
+              {currentProfile ? "Guardar Cambios" : "Comenzar Aventura"}
+            </button>
+          </div>
         </form>
       </div>
     </div>

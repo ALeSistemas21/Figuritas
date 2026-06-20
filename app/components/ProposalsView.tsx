@@ -8,11 +8,13 @@ interface Proposal {
   solicitante_id: string;
   solicitante_nombre: string;
   solicitante_ciudad: string;
+  solicitante_departamento: string;
   solicitante_provincia: string;
   solicitante_escuela?: string;
   receptor_id: string;
   receptor_nombre: string;
   receptor_ciudad: string;
+  receptor_departamento: string;
   receptor_provincia: string;
   receptor_escuela?: string;
   ofrece: string[];
@@ -68,7 +70,7 @@ export default function ProposalsView({
                       {p.solicitante_nombre}
                     </h4>
                     <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                      {p.solicitante_ciudad}, {p.solicitante_provincia}
+                      {p.solicitante_ciudad}, {p.solicitante_departamento}, {p.solicitante_provincia}
                       {p.solicitante_escuela ? ` • ${p.solicitante_escuela}` : ""}
                     </p>
                   </div>
@@ -181,7 +183,7 @@ export default function ProposalsView({
                         Para: {p.receptor_nombre}
                       </h4>
                       <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                        {p.receptor_ciudad}, {p.receptor_provincia}
+                        {p.receptor_ciudad}, {p.receptor_departamento}, {p.receptor_provincia}
                         {p.receptor_escuela ? ` • ${p.receptor_escuela}` : ""}
                       </p>
                     </div>

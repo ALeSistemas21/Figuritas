@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Award, Edit2, LogOut, RefreshCw, Trophy } from "lucide-react";
+import { Award, Edit2, LogOut, RefreshCw, Trophy, Send, Users } from "lucide-react";
 
 interface HeaderProps {
   profile: {

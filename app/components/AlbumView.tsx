@@ -10,6 +10,7 @@ interface AlbumViewProps {
   otherUserCollection?: { [stickerId: string]: number } | null;
   otherUserName?: string;
   onCloseOtherUserView?: () => void;
+  onSearchPerfectMatch?: (stickerId: string) => void;
 }
 
 export default function AlbumView({
@@ -17,7 +18,8 @@ export default function AlbumView({
   onUpdateQuantity,
   otherUserCollection = null,
   otherUserName = "",
-  onCloseOtherUserView
+  onCloseOtherUserView,
+  onSearchPerfectMatch
 }: AlbumViewProps) {
   const isReadOnly = !!otherUserCollection;
   const activeCollection = otherUserCollection || myCollection;
@@ -324,16 +326,35 @@ export default function AlbumView({
                         </button>
                       </div>
                     ) : (
-                      <div className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 mt-auto border-t border-zinc-100 pt-2 dark:border-zinc-800">
-                        {qty > 0 ? (
-                          <span className="text-emerald-500 font-semibold flex items-center gap-1">
-                            <CheckCircle2 className="h-3 w-3" />
-                            <span>La tiene ({qty})</span>
-                          </span>
+                      <div className="flex flex-col gap-1.5 mt-auto border-t border-zinc-100 pt-2 dark:border-zinc-800">
+                        {isReadOnly ? (
+                          <div className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500">
+                            {qty > 0 ? (
+                              <span className="text-emerald-500 font-semibold flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3" />
+                                <span>La tiene ({qty})</span>
+                              </span>
+                            ) : (
+                              <span className="text-zinc-400 dark:text-zinc-500">No la tiene</span>
+                            )}
+                          </div>
                         ) : (
-                          <span className="text-zinc-400 dark:text-zinc-500">No la tiene</span>
+                          // It's not read-only, but onUpdateQuantity is missing? Or it's our album but qty == 0 and we want to show Perfect Match button
+                          null
                         )}
                       </div>
+                    )}
+                    
+                    {/* Botón de Match Perfecto para mis figuritas faltantes */}
+                    {!isReadOnly && qty === 0 && onSearchPerfectMatch && (
+                      <button
+                        type="button"
+                        onClick={() => onSearchPerfectMatch(st.id)}
+                        className="mt-2 w-full rounded bg-indigo-50 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-600 transition hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20 flex items-center justify-center gap-1"
+                      >
+                        <Search className="h-3 w-3" />
+                        Match Perfecto
+                      </button>
                     )}
                   </div>
                 );

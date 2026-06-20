@@ -8,8 +8,9 @@ import DashboardView from "./components/DashboardView";
 import AlbumView from "./components/AlbumView";
 import MatchView from "./components/MatchView";
 import ProposalsView from "./components/ProposalsView";
+import FriendsView from "./components/FriendsView";
 import { TOTAL_STICKERS_COUNT } from "./utils/figuData";
-import { Trophy, Compass, Send, Home, Loader2 } from "lucide-react";
+import { Trophy, Compass, Send, Home, Loader2, Users } from "lucide-react";
 import confetti from "canvas-confetti";
 
 const getJoinedName = (field: any): string => {
@@ -22,9 +23,12 @@ const getJoinedName = (field: any): string => {
 
 interface Profile {
   id: string;
+  id_publico: string;
   nombre: string;
   provincia_id: number;
   provincia: string;
+  departamento_id: number;
+  departamento: string;
   localidad_id: number;
   ciudad: string;
   escuela_id: number | null;
@@ -37,9 +41,13 @@ export default function Page() {
   const [myCollection, setMyCollection] = useState<{ [stickerId: string]: number }>({});
   const [collectors, setCollectors] = useState<any[]>([]);
   const [proposals, setProposals] = useState<any[]>([]);
+  const [friends, setFriends] = useState<any[]>([]);
+  const [friendRequests, setFriendRequests] = useState<any[]>([]);
+  const [friendCollection, setFriendCollection] = useState<{ id: string; name: string; items: { [stickerId: string]: number } } | null>(null);
+  const [perfectMatchFilter, setPerfectMatchFilter] = useState<string | null>(null);
 
   // Navigation
-  const [activeTab, setActiveTab] = useState<"dashboard" | "album" | "matches" | "proposals">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "album" | "matches" | "proposals" | "friends">("dashboard");
 
   // Loading states
   const [initializing, setInitializing] = useState(true);
@@ -69,8 +77,9 @@ export default function Page() {
       const { data: profileData, error: profileErr } = await supabase
         .from("perfiles")
         .select(`
-          id, nombre, provincia_id, localidad_id, escuela_id, completitud,
+          id, id_publico, nombre, provincia_id, departamento_id, localidad_id, escuela_id, completitud,
           provincias(nombre),
+          departamentos(nombre),
           localidades(nombre),
           escuelas(nombre)
         `)
@@ -91,9 +100,12 @@ export default function Page() {
       // Format profile data
       const formattedProfile = {
         id: profileData.id,
+        id_publico: profileData.id_publico,
         nombre: profileData.nombre,
         provincia_id: profileData.provincia_id,
         provincia: getJoinedName(profileData.provincias),
+        departamento_id: profileData.departamento_id,
+        departamento: getJoinedName(profileData.departamentos),
         localidad_id: profileData.localidad_id,
         ciudad: getJoinedName(profileData.localidades),
         escuela_id: profileData.escuela_id,
@@ -120,7 +132,8 @@ export default function Page() {
       // Fetch collectors and proposals
       await Promise.all([
         fetchCollectors(formattedProfile),
-        fetchProposals(profileId)
+        fetchProposals(profileId),
+        fetchFriends(profileId)
       ]);
 
       setShowProfileModal(false);
@@ -140,8 +153,9 @@ export default function Page() {
       const { data, error } = await supabase
         .from("perfiles")
         .select(`
-          id, nombre, provincia_id, localidad_id, escuela_id, completitud,
+          id, nombre, provincia_id, departamento_id, localidad_id, escuela_id, completitud,
           provincias(nombre),
+          departamentos(nombre),
           localidades(nombre),
           escuelas(nombre)
         `)
@@ -167,7 +181,7 @@ export default function Page() {
 
       // Calculate proximity level and simulated distance for each collector
       const formattedCollectors = data.map(c => {
-        let proximityLevel: 1 | 2 | 3 | 4 = 4;
+        let proximityLevel: 1 | 2 | 3 | 4 | 5 = 5;
         let distancia = 0; // km
 
         if (profile.escuela_id && c.escuela_id === profile.escuela_id) {
@@ -176,11 +190,14 @@ export default function Page() {
         } else if (c.localidad_id === profile.localidad_id) {
           proximityLevel = 2;
           distancia = Math.random() * 3 + 0.5; // 0.5 - 3.5 km
-        } else if (c.provincia_id === profile.provincia_id) {
+        } else if (c.departamento_id === profile.departamento_id) {
           proximityLevel = 3;
+          distancia = Math.random() * 10 + 4; // 4 - 14 km (Departamento)
+        } else if (c.provincia_id === profile.provincia_id) {
+          proximityLevel = 4;
           distancia = Math.random() * 80 + 15; // 15 - 95 km
         } else {
-          proximityLevel = 4;
+          proximityLevel = 5;
           distancia = Math.random() * 1000 + 150; // 150 - 1150 km
         }
 
@@ -189,6 +206,8 @@ export default function Page() {
           nombre: c.nombre,
           provincia_id: c.provincia_id,
           provincia: getJoinedName(c.provincias),
+          departamento_id: c.departamento_id,
+          departamento: getJoinedName(c.departamentos),
           localidad_id: c.localidad_id,
           ciudad: getJoinedName(c.localidades),
           escuela_id: c.escuela_id,
@@ -224,8 +243,14 @@ export default function Page() {
         .from("propuestas")
         .select(`
           id, solicitante_id, receptor_id, ofrece, solicita, estado, created_at,
-          solicitante:perfiles!propuestas_solicitante_id_fkey(nombre, provincia_id, localidad_id, escuela_id, provincias(nombre), localidades(nombre), escuelas(nombre)),
-          receptor:perfiles!propuestas_receptor_id_fkey(nombre, provincia_id, localidad_id, escuela_id, provincias(nombre), localidades(nombre), escuelas(nombre))
+          solicitante:perfiles!propuestas_solicitante_id_fkey(
+            nombre, provincia_id, departamento_id, localidad_id, escuela_id,
+            provincias(nombre), departamentos(nombre), localidades(nombre), escuelas(nombre)
+          ),
+          receptor:perfiles!propuestas_receptor_id_fkey(
+            nombre, provincia_id, departamento_id, localidad_id, escuela_id,
+            provincias(nombre), departamentos(nombre), localidades(nombre), escuelas(nombre)
+          )
         `)
         .or(`solicitante_id.eq.${profileId},receptor_id.eq.${profileId}`)
         .order("created_at", { ascending: false });
@@ -241,11 +266,13 @@ export default function Page() {
           solicitante_id: p.solicitante_id,
           solicitante_nombre: solicitanteObj?.nombre || "",
           solicitante_ciudad: getJoinedName(solicitanteObj?.localidades),
+          solicitante_departamento: getJoinedName(solicitanteObj?.departamentos),
           solicitante_provincia: getJoinedName(solicitanteObj?.provincias),
           solicitante_escuela: getJoinedName(solicitanteObj?.escuelas),
           receptor_id: p.receptor_id,
           receptor_nombre: receptorObj?.nombre || "",
           receptor_ciudad: getJoinedName(receptorObj?.localidades),
+          receptor_departamento: getJoinedName(receptorObj?.departamentos),
           receptor_provincia: getJoinedName(receptorObj?.provincias),
           receptor_escuela: getJoinedName(receptorObj?.escuelas),
           ofrece: p.ofrece,
@@ -263,6 +290,99 @@ export default function Page() {
     }
   };
 
+  const fetchFriends = async (profileId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("amistades")
+        .select(`
+          id, solicitante_id, receptor_id, estado,
+          solicitante:perfiles!amistades_solicitante_id_fkey(id, id_publico, nombre),
+          receptor:perfiles!amistades_receptor_id_fkey(id, id_publico, nombre)
+        `)
+        .or(`solicitante_id.eq.${profileId},receptor_id.eq.${profileId}`);
+
+      if (error) throw error;
+      
+      const acc = data.filter(a => a.estado === "aceptada");
+      const reqs = data.filter(a => a.estado === "pendiente");
+      setFriends(acc);
+      setFriendRequests(reqs);
+    } catch (err) {
+      console.error("Error fetching friends:", err);
+    }
+  };
+
+  const handleSendFriendRequest = async (idPublico: string) => {
+    if (!myProfile) return { success: false, message: "No profile" };
+    if (idPublico === myProfile.id_publico) return { success: false, message: "No puedes agregarte a ti mismo" };
+    try {
+      const { data: targetUser, error: searchErr } = await supabase
+        .from("perfiles")
+        .select("id")
+        .eq("id_publico", idPublico)
+        .single();
+      
+      if (searchErr || !targetUser) return { success: false, message: "Usuario no encontrado" };
+      
+      const { error: insertErr } = await supabase
+        .from("amistades")
+        .insert({
+          solicitante_id: myProfile.id,
+          receptor_id: targetUser.id,
+          estado: "pendiente"
+        });
+        
+      if (insertErr) {
+        if (insertErr.code === "23505") return { success: false, message: "La solicitud ya existe o ya son amigos" };
+        throw insertErr;
+      }
+      
+      await fetchFriends(myProfile.id);
+      return { success: true, message: "Solicitud enviada exitosamente" };
+    } catch (err) {
+      console.error(err);
+      return { success: false, message: "Error al enviar solicitud" };
+    }
+  };
+
+  const handleAcceptFriendRequest = async (reqId: string) => {
+    try {
+      await supabase.from("amistades").update({ estado: "aceptada" }).eq("id", reqId);
+      if (myProfile) fetchFriends(myProfile.id);
+    } catch (err) {}
+  };
+
+  const handleRejectFriendRequest = async (reqId: string) => {
+    try {
+      await supabase.from("amistades").update({ estado: "rechazada" }).eq("id", reqId);
+      if (myProfile) fetchFriends(myProfile.id);
+    } catch (err) {}
+  };
+
+  const handleViewFriendCollection = async (friendId: string, friendName: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("colecciones")
+        .select("sticker_id, cantidad")
+        .eq("perfil_id", friendId);
+        
+      if (error) throw error;
+      
+      const collMap: { [sId: string]: number } = {};
+      data?.forEach((d: any) => { collMap[d.sticker_id] = d.cantidad; });
+      
+      setFriendCollection({ id: friendId, name: friendName, items: collMap });
+      setActiveTab("album");
+    } catch (err) {
+      console.error("Error viewing friend collection:", err);
+    }
+  };
+
+  const handleSearchPerfectMatch = (stickerId: string) => {
+    setPerfectMatchFilter(stickerId);
+    setActiveTab("matches");
+  };
+
   // Save profile info (Register or edit)
   const handleSaveProfile = async (profileData: any) => {
     setSavingProfile(true);
@@ -275,8 +395,10 @@ export default function Page() {
 
       const payload = {
         id: profileId,
+        id_publico: profileData.id_publico,
         nombre: profileData.nombre,
         provincia_id: profileData.provincia_id,
+        departamento_id: profileData.departamento_id,
         localidad_id: profileData.localidad_id,
         escuela_id: profileData.escuela_id,
         completitud: myProfile?.completitud || 0
@@ -387,69 +509,75 @@ export default function Page() {
   const handleAcceptProposal = async (proposalId: string) => {
     if (!myProfile) return;
     try {
-      // Fetch the proposal details
       const prop = proposals.find(p => p.id === proposalId);
       if (!prop) return;
 
-      const receiverId = prop.receptor_id; // should be me (or vice versa in simulation)
+      const receiverId = prop.receptor_id; 
       const senderId = prop.solicitante_id;
 
-      // 1. Offered stickers (what receiver gets from sender)
-      // For each offered sticker:
-      // Receiver: quantity += 1
-      // Sender: quantity -= 1 (from their duplicates, so it's decrementing the duplicates count)
-      
-      // 2. Requested stickers (what sender gets from receiver)
-      // For each requested sticker:
-      // Receiver: quantity -= 1
-      // Sender: quantity += 1
-
-      // Fetch current collection of sender from DB to make sure we modify it correctly
-      const { data: senderCollData, error: senderCollErr } = await supabase
+      // 1. Fetch fresh collections for BOTH users from DB
+      const { data: bothCollData, error: collErr } = await supabase
         .from("colecciones")
-        .select("sticker_id, cantidad")
-        .eq("perfil_id", senderId);
+        .select("perfil_id, sticker_id, cantidad")
+        .in("perfil_id", [senderId, receiverId]);
 
-      if (senderCollErr) throw senderCollErr;
+      if (collErr) throw collErr;
 
       const senderColl: { [stId: string]: number } = {};
-      senderCollData?.forEach(item => {
-        senderColl[item.sticker_id] = item.cantidad;
+      const receiverColl: { [stId: string]: number } = {};
+      
+      bothCollData?.forEach(item => {
+        if (item.perfil_id === senderId) senderColl[item.sticker_id] = item.cantidad;
+        if (item.perfil_id === receiverId) receiverColl[item.sticker_id] = item.cantidad;
       });
 
-      // Prepare batch updates
+      // 2. Validate sender has at least 2 of what they offer
+      const senderMissingDups = prop.ofrece.filter((stId: string) => (senderColl[stId] || 0) < 2);
+      
+      // 3. Validate receiver (me) has at least 2 of what is requested
+      const receiverMissingDups = prop.solicita.filter((stId: string) => (receiverColl[stId] || 0) < 2);
+
+      // If either party lacks the required duplicates, the trade is invalid
+      if (senderMissingDups.length > 0 || receiverMissingDups.length > 0) {
+        let reason = "";
+        if (senderMissingDups.length > 0) reason += "El solicitante ya no tiene repetidas algunas figuritas ofrecidas. ";
+        if (receiverMissingDups.length > 0) reason += "Tú ya no tienes repetidas algunas figuritas solicitadas. ";
+        
+        alert(`No se puede completar el trato:\n${reason}\nEl trato será cancelado automáticamente.`);
+        
+        // Auto-cancel the invalid proposal
+        await supabase.from("propuestas").update({ estado: "cancelado" }).eq("id", proposalId);
+        if (myProfile) await fetchProposals(myProfile.id);
+        return;
+      }
+
+      // 4. Prepare batch updates (since it's valid)
       const receiverUpdates: any[] = [];
       const senderUpdates: any[] = [];
 
-      // Process offers (sender gives to receiver)
       prop.ofrece.forEach((stId: string) => {
-        // Receiver gets it
-        const curRxQty = myCollection[stId] || 0;
+        const curRxQty = receiverColl[stId] || 0;
         receiverUpdates.push({ perfil_id: receiverId, sticker_id: stId, cantidad: curRxQty + 1 });
         
-        // Sender loses one duplicate
         const curTxQty = senderColl[stId] || 0;
-        senderUpdates.push({ perfil_id: senderId, sticker_id: stId, cantidad: Math.max(0, curTxQty - 1) });
+        senderUpdates.push({ perfil_id: senderId, sticker_id: stId, cantidad: curTxQty - 1 });
       });
 
-      // Process requests (receiver gives to sender)
       prop.solicita.forEach((stId: string) => {
-        // Receiver loses one duplicate
-        const curRxQty = myCollection[stId] || 0;
-        receiverUpdates.push({ perfil_id: receiverId, sticker_id: stId, cantidad: Math.max(0, curRxQty - 1) });
+        const curRxQty = receiverColl[stId] || 0;
+        receiverUpdates.push({ perfil_id: receiverId, sticker_id: stId, cantidad: curRxQty - 1 });
         
-        // Sender gets it
         const curTxQty = senderColl[stId] || 0;
         senderUpdates.push({ perfil_id: senderId, sticker_id: stId, cantidad: curTxQty + 1 });
       });
 
-      // Run database upserts
+      // 5. Run database upserts
       await Promise.all([
         ...receiverUpdates.map(u => supabase.from("colecciones").upsert(u)),
         ...senderUpdates.map(u => supabase.from("colecciones").upsert(u))
       ]);
 
-      // Update proposal status in DB
+      // 6. Update proposal status
       await supabase
         .from("propuestas")
         .update({ estado: "aceptado" })
@@ -462,11 +590,21 @@ export default function Page() {
         origin: { y: 0.6 }
       });
 
-      // Reload
-      await loadProfileAndData(myProfile.id);
-      setActiveTab("dashboard");
+      // Refresh data
+      if (myProfile) {
+        await fetchProposals(myProfile.id);
+        await fetchCollectors(myProfile);
+        
+        // Update local collection state efficiently
+        const newMyCollection = { ...myCollection };
+        receiverUpdates.forEach(u => {
+          newMyCollection[u.sticker_id] = u.cantidad;
+        });
+        setMyCollection(newMyCollection);
+      }
     } catch (err) {
-      console.error("Error executing trade acceptance:", err);
+      console.error("Error accepting proposal:", err);
+      alert("Hubo un error al aceptar el trato. Por favor, intenta nuevamente.");
     }
   };
 
@@ -501,6 +639,8 @@ export default function Page() {
     setMyCollection({});
     setCollectors([]);
     setProposals([]);
+    setFriends([]);
+    setFriendRequests([]);
     setShowProfileModal(true);
   };
 
@@ -509,12 +649,13 @@ export default function Page() {
     if (!myProfile) return;
     setGeneratingMock(true);
     try {
-      // Define 4 mock users at different locations relative to ours
+      // Define 5 mock users at different locations relative to ours
       const mockProfiles = [
         {
           id: crypto.randomUUID(),
           nombre: "Sofía (Misma Escuela)",
           provincia_id: myProfile.provincia_id,
+          departamento_id: myProfile.departamento_id,
           localidad_id: myProfile.localidad_id,
           escuela_id: myProfile.escuela_id, // Same school
           completitud: 68
@@ -523,33 +664,45 @@ export default function Page() {
           id: crypto.randomUUID(),
           nombre: "Martín (Misma Ciudad)",
           provincia_id: myProfile.provincia_id,
+          departamento_id: myProfile.departamento_id,
           localidad_id: myProfile.localidad_id,
           escuela_id: null, // Different school, same city
           completitud: 45
         },
         {
           id: crypto.randomUUID(),
-          nombre: "Lucas (Misma Provincia)",
+          nombre: "Lucas (Mismo Departamento)",
           provincia_id: myProfile.provincia_id,
-          localidad_id: null, // Fetch a random other locality of the same province
+          departamento_id: myProfile.departamento_id,
+          localidad_id: null, // Sibling locality of the department
           escuela_id: null,
           completitud: 32
         },
         {
           id: crypto.randomUUID(),
+          nombre: "Mateo (Misma Provincia)",
+          provincia_id: myProfile.provincia_id,
+          departamento_id: null, // Sibling department
+          localidad_id: null,
+          escuela_id: null,
+          completitud: 53
+        },
+        {
+          id: crypto.randomUUID(),
           nombre: "Victoria (Nivel Nacional)",
           provincia_id: null, // Different province
+          departamento_id: null,
           localidad_id: null,
           escuela_id: null,
           completitud: 78
         }
       ];
 
-      // Fix random localidades for Lucas (same province, different city)
+      // Fix random localidades for Lucas (same department, different city)
       const { data: siblingLocs } = await supabase
         .from("localidades")
         .select("id")
-        .eq("provincia_id", myProfile.provincia_id)
+        .eq("departamento_id", myProfile.departamento_id)
         .neq("id", myProfile.localidad_id)
         .limit(5);
 
@@ -559,7 +712,35 @@ export default function Page() {
         mockProfiles[2].localidad_id = myProfile.localidad_id;
       }
 
-      // Fix random province and city for Victoria
+      // Fix random department and locality for Mateo (same province, different department)
+      const { data: siblingDepts } = await supabase
+        .from("departamentos")
+        .select("id")
+        .eq("provincia_id", myProfile.provincia_id)
+        .neq("id", myProfile.departamento_id)
+        .limit(5);
+
+      if (siblingDepts && siblingDepts.length > 0) {
+        const siblingDeptId = siblingDepts[Math.floor(Math.random() * siblingDepts.length)].id;
+        mockProfiles[3].departamento_id = siblingDeptId;
+        
+        const { data: siblingDeptLocs } = await supabase
+          .from("localidades")
+          .select("id")
+          .eq("departamento_id", siblingDeptId)
+          .limit(5);
+
+        if (siblingDeptLocs && siblingDeptLocs.length > 0) {
+          mockProfiles[3].localidad_id = siblingDeptLocs[Math.floor(Math.random() * siblingDeptLocs.length)].id;
+        } else {
+          mockProfiles[3].localidad_id = myProfile.localidad_id;
+        }
+      } else {
+        mockProfiles[3].departamento_id = myProfile.departamento_id;
+        mockProfiles[3].localidad_id = myProfile.localidad_id;
+      }
+
+      // Fix random province, department and city for Victoria
       const { data: randomProvs } = await supabase
         .from("provincias")
         .select("id")
@@ -568,16 +749,27 @@ export default function Page() {
 
       if (randomProvs && randomProvs.length > 0) {
         const otherProvId = randomProvs[Math.floor(Math.random() * randomProvs.length)].id;
-        mockProfiles[3].provincia_id = otherProvId;
+        mockProfiles[4].provincia_id = otherProvId;
         
-        const { data: otherLocs } = await supabase
-          .from("localidades")
+        const { data: otherDepts } = await supabase
+          .from("departamentos")
           .select("id")
           .eq("provincia_id", otherProvId)
           .limit(5);
           
-        if (otherLocs && otherLocs.length > 0) {
-          mockProfiles[3].localidad_id = otherLocs[Math.floor(Math.random() * otherLocs.length)].id;
+        if (otherDepts && otherDepts.length > 0) {
+          const otherDeptId = otherDepts[Math.floor(Math.random() * otherDepts.length)].id;
+          mockProfiles[4].departamento_id = otherDeptId;
+          
+          const { data: otherLocs } = await supabase
+            .from("localidades")
+            .select("id")
+            .eq("departamento_id", otherDeptId)
+            .limit(5);
+            
+          if (otherLocs && otherLocs.length > 0) {
+            mockProfiles[4].localidad_id = otherLocs[Math.floor(Math.random() * otherLocs.length)].id;
+          }
         }
       }
 
@@ -588,6 +780,7 @@ export default function Page() {
             id: p.id,
             nombre: p.nombre,
             provincia_id: p.provincia_id,
+            departamento_id: p.departamento_id,
             localidad_id: p.localidad_id,
             escuela_id: p.escuela_id,
             completitud: p.completitud
@@ -697,6 +890,10 @@ export default function Page() {
           <AlbumView
             myCollection={myCollection}
             onUpdateQuantity={handleUpdateQuantity}
+            otherUserCollection={friendCollection?.items}
+            otherUserName={friendCollection?.name}
+            onCloseOtherUserView={() => setFriendCollection(null)}
+            onSearchPerfectMatch={handleSearchPerfectMatch}
           />
         )}
 
@@ -708,6 +905,8 @@ export default function Page() {
             onProposeTrade={handleProposeTrade}
             loading={loadingMatches}
             onRefresh={() => fetchCollectors(myProfile)}
+            perfectMatchStickerId={perfectMatchFilter}
+            onClearPerfectMatch={() => setPerfectMatchFilter(null)}
           />
         )}
 
@@ -719,6 +918,19 @@ export default function Page() {
             onReject={handleRejectProposal}
             onCancel={handleCancelProposal}
             loading={loadingProposals}
+          />
+        )}
+
+        {activeTab === "friends" && (
+          <FriendsView
+            myProfile={myProfile}
+            friends={friends}
+            requests={friendRequests}
+            onAccept={handleAcceptFriendRequest}
+            onReject={handleRejectFriendRequest}
+            onSendRequest={handleSendFriendRequest}
+            onViewCollection={handleViewFriendCollection}
+            loading={false}
           />
         )}
       </main>
@@ -778,6 +990,23 @@ export default function Page() {
               </span>
             )}
           </button>
+
+          <button
+            onClick={() => setActiveTab("friends")}
+            className={`flex flex-col items-center gap-1 text-[10px] font-bold transition relative ${
+              activeTab === "friends"
+                ? "text-emerald-500"
+                : "text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-300"
+            }`}
+          >
+            <Users className="h-5 w-5" />
+            <span>Amigos</span>
+            {friendRequests.filter(r => r.receptor_id === myProfile?.id && r.estado === 'pendiente').length > 0 && (
+              <span className="absolute -top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[8px] font-extrabold text-white shadow-sm ring-2 ring-white dark:ring-zinc-950">
+                {friendRequests.filter(r => r.receptor_id === myProfile?.id && r.estado === 'pendiente').length}
+              </span>
+            )}
+          </button>
         </div>
       </nav>
 
@@ -786,6 +1015,7 @@ export default function Page() {
         currentProfile={myProfile}
         isOpen={showProfileModal}
         onSave={handleSaveProfile}
+        onClose={() => setShowProfileModal(false)}
       />
     </div>
   );

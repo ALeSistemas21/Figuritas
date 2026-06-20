@@ -56,8 +56,9 @@ Permitir que un coleccionista registre su ubicación (Provincia, Ciudad) y su Es
 * **Búsqueda por Cercanía**: Motor que lista otros coleccionistas activos ordenados bajo la siguiente prioridad:
   1. **Misma Escuela** (Coincidencia institucional - distancia simulada a pocos metros).
   2. **Misma Localidad** (Coincidencia local - distancia simulada < 3.5 km).
-  3. **Misma Provincia** (Coincidencia regional - distancia simulada < 95 km).
-  4. **Nivel Nacional** (Distancia simulada > 150 km).
+  3. **Mismo Departamento** (Coincidencia departamental - distancia simulada 4 - 14 km).
+  4. **Misma Provincia** (Coincidencia regional - distancia simulada < 95 km).
+  5. **Nivel Nacional** (Distancia simulada > 150 km).
 * **Cruce de Inventario**: Muestra automáticamente:
   * Cuántas y cuáles figuritas tiene el coleccionista sugerido que a mí me faltan ("Te puede dar").
   * Cuántas y cuáles figuritas tengo yo repetidas que al coleccionista le faltan ("Le podés dar").
@@ -80,10 +81,15 @@ Permitir que un coleccionista registre su ubicación (Provincia, Ciudad) y su Es
 * `id` (SERIAL PRIMARY KEY)
 * `nombre` (VARCHAR(100) UNIQUE)
 
+### Departamentos
+* `id` (SERIAL PRIMARY KEY)
+* `nombre` (VARCHAR(100))
+* `provincia_id` (INTEGER REFERENCES provincias)
+
 ### Localidades
 * `id` (SERIAL PRIMARY KEY)
 * `nombre` (VARCHAR(150))
-* `provincia_id` (INTEGER REFERENCES provincias)
+* `departamento_id` (INTEGER REFERENCES departamentos)
 
 ### Escuelas
 * `id` (SERIAL PRIMARY KEY)
@@ -98,6 +104,7 @@ Permitir que un coleccionista registre su ubicación (Provincia, Ciudad) y su Es
 * `id` (UUID PRIMARY KEY)
 * `nombre` (VARCHAR(100))
 * `provincia_id` (INTEGER REFERENCES provincias)
+* `departamento_id` (INTEGER REFERENCES departamentos)
 * `localidad_id` (INTEGER REFERENCES localidades)
 * `escuela_id` (INTEGER REFERENCES escuelas NULL)
 * `completitud` (INTEGER DEFAULT 0)

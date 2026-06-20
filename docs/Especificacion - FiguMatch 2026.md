@@ -36,6 +36,7 @@ Permitir que un coleccionista registre su ubicación (Provincia, Ciudad) y su Es
 
 ### 1. Módulo de Perfil y Registro
 * **Registro Inicial**: Obligatorio para utilizar la aplicación. Requiere:
+  * ID Público: Un código o nombre de usuario único que servirá para ser agregado por otros coleccionistas.
   * Nombre o Apodo.
   * Provincia (seleccionada de un catálogo dinámico).
   * Localidad (filtrada reactivamente por la provincia seleccionada).
@@ -56,11 +57,15 @@ Permitir que un coleccionista registre su ubicación (Provincia, Ciudad) y su Es
 * **Búsqueda por Cercanía**: Motor que lista otros coleccionistas activos ordenados bajo la siguiente prioridad:
   1. **Misma Escuela** (Coincidencia institucional - distancia simulada a pocos metros).
   2. **Misma Localidad** (Coincidencia local - distancia simulada < 3.5 km).
-  3. **Misma Provincia** (Coincidencia regional - distancia simulada < 95 km).
-  4. **Nivel Nacional** (Distancia simulada > 150 km).
+  3. **Mismo Departamento** (Coincidencia departamental - distancia simulada 4 - 14 km).
+  4. **Misma Provincia** (Coincidencia regional - distancia simulada < 95 km).
+  5. **Nivel Nacional** (Distancia simulada > 150 km).
 * **Cruce de Inventario**: Muestra automáticamente:
   * Cuántas y cuáles figuritas tiene el coleccionista sugerido que a mí me faltan ("Te puede dar").
   * Cuántas y cuáles figuritas tengo yo repetidas que al coleccionista le faltan ("Le podés dar").
+* **Búsqueda de Match Perfecto (Doble Coincidencia)**: 
+  * Desde una figurita faltante, un botón permite buscar a un usuario que posea esa figurita como repetida y que, al mismo tiempo, necesite alguna de las figuritas que el usuario tiene repetidas.
+  * Los resultados de esta búsqueda también se ordenan priorizando estrictamente la cercanía (Escuela > Localidad > Departamento > Provincia).
 * **Visualización de Álbum Ajeno**: Modo lectura para ver el progreso del álbum del otro usuario.
 
 ### 4. Módulo de Propuestas de Intercambio
@@ -72,6 +77,12 @@ Permitir que un coleccionista registre su ubicación (Provincia, Ciudad) y su Es
   * Se transfieren los cromos: el receptor obtiene las figuritas solicitadas y descuenta las ofrecidas de su colección (y viceversa para el solicitante).
   * El estado de la propuesta cambia a `aceptado` y se desencadena una animación de confeti en pantalla.
 
+### 5. Módulo de Amigos
+* **Lista de Amigos**: Los usuarios podrán armar una red de amigos utilizando el ID Público.
+* **Solicitudes de Amistad**: Al agregar un ID Público, se envía una solicitud que debe ser aceptada por el otro usuario.
+* **Gestión de Solicitudes**: Bandeja para aceptar, rechazar o cancelar solicitudes enviadas y recibidas.
+* **Visualización de Colecciones Amigas**: Desde la lista de amigos confirmados, un usuario podrá acceder a ver en detalle el álbum y el progreso de la colección de cualquiera de sus amistades.
+
 ---
 
 ## Modelo de Datos (Relacional)
@@ -80,10 +91,15 @@ Permitir que un coleccionista registre su ubicación (Provincia, Ciudad) y su Es
 * `id` (SERIAL PRIMARY KEY)
 * `nombre` (VARCHAR(100) UNIQUE)
 
+### Departamentos
+* `id` (SERIAL PRIMARY KEY)
+* `nombre` (VARCHAR(100))
+* `provincia_id` (INTEGER REFERENCES provincias)
+
 ### Localidades
 * `id` (SERIAL PRIMARY KEY)
 * `nombre` (VARCHAR(150))
-* `provincia_id` (INTEGER REFERENCES provincias)
+* `departamento_id` (INTEGER REFERENCES departamentos)
 
 ### Escuelas
 * `id` (SERIAL PRIMARY KEY)
@@ -96,8 +112,10 @@ Permitir que un coleccionista registre su ubicación (Provincia, Ciudad) y su Es
 
 ### Perfiles
 * `id` (UUID PRIMARY KEY)
+* `id_publico` (VARCHAR(50) UNIQUE)
 * `nombre` (VARCHAR(100))
 * `provincia_id` (INTEGER REFERENCES provincias)
+* `departamento_id` (INTEGER REFERENCES departamentos)
 * `localidad_id` (INTEGER REFERENCES localidades)
 * `escuela_id` (INTEGER REFERENCES escuelas NULL)
 * `completitud` (INTEGER DEFAULT 0)
@@ -115,6 +133,14 @@ Permitir que un coleccionista registre su ubicación (Provincia, Ciudad) y su Es
 * `ofrece` (TEXT[] - Array de IDs de figuritas)
 * `solicita` (TEXT[] - Array de IDs de figuritas)
 * `estado` (VARCHAR(20) CHECK IN ('pendiente', 'aceptado', 'rechazado', 'cancelado'))
+
+### Amistades
+* `id` (UUID PRIMARY KEY)
+* `solicitante_id` (UUID REFERENCES perfiles)
+* `receptor_id` (UUID REFERENCES perfiles)
+* `estado` (VARCHAR(20) CHECK IN ('pendiente', 'aceptada', 'rechazada'))
+* `created_at` (TIMESTAMP)
+* Restricción UNIQUE (`solicitante_id`, `receptor_id`)
 
 ---
 

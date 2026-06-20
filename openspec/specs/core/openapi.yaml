@@ -42,10 +42,45 @@ paths:
                 items:
                   $ref: "#/components/schemas/Provincia"
 
+  /departamentos:
+    get:
+      summary: Obtener el listado de departamentos
+      description: Recupera los departamentos de una provincia específica.
+      parameters:
+        - name: select
+          in: query
+          description: Campos a seleccionar (ej. id,nombre)
+          required: false
+          schema:
+            type: string
+            default: "id,nombre"
+        - name: provincia_id
+          in: query
+          description: Operador de filtro para provincia_id (ej. eq.2)
+          required: true
+          schema:
+            type: string
+        - name: order
+          in: query
+          description: Ordenamiento de campos (ej. nombre.asc)
+          required: false
+          schema:
+            type: string
+            default: "nombre.asc"
+      responses:
+        "200":
+          description: Listado de departamentos obtenido con éxito
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Departamento"
+
   /localidades:
     get:
       summary: Obtener el listado de localidades
-      description: Recupera las localidades de una provincia específica.
+      description: Recupera las localidades de un departamento específico.
       parameters:
         - name: select
           in: query
@@ -54,9 +89,9 @@ paths:
           schema:
             type: string
             default: "id,nombre"
-        - name: provincia_id
+        - name: departamento_id
           in: query
-          description: Operador de filtro para provincia_id (ej. eq.2)
+          description: Operador de filtro para departamento_id (ej. eq.15)
           required: true
           schema:
             type: string
@@ -125,7 +160,7 @@ paths:
       parameters:
         - name: select
           in: query
-          description: Campos a seleccionar con relaciones unidas (ej. id,nombre,provincias(nombre),localidades(nombre),escuelas(nombre))
+          description: Campos a seleccionar con relaciones unidas (ej. id,nombre,provincias(nombre),departamentos(nombre),localidades(nombre),escuelas(nombre))
           required: false
           schema:
             type: string
@@ -326,6 +361,18 @@ components:
         nombre:
           type: string
           example: "Santa Fe"
+    Departamento:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 15
+        nombre:
+          type: string
+          example: "Rosario"
+        provincia_id:
+          type: integer
+          example: 12
     Localidad:
       type: object
       properties:
@@ -335,6 +382,9 @@ components:
         nombre:
           type: string
           example: "Rosario"
+        departamento_id:
+          type: integer
+          example: 15
     Escuela:
       type: object
       properties:
@@ -362,6 +412,7 @@ components:
         - id
         - nombre
         - provincia_id
+        - departamento_id
         - localidad_id
       properties:
         id:
@@ -371,6 +422,8 @@ components:
           type: string
           maxLength: 100
         provincia_id:
+          type: integer
+        departamento_id:
           type: integer
         localidad_id:
           type: integer
@@ -390,6 +443,8 @@ components:
           type: string
         provincia_id:
           type: integer
+        departamento_id:
+          type: integer
         localidad_id:
           type: integer
         escuela_id:
@@ -398,6 +453,13 @@ components:
         completitud:
           type: integer
         provincias:
+          type: array
+          items:
+            type: object
+            properties:
+              nombre:
+                type: string
+        departamentos:
           type: array
           items:
             type: object
