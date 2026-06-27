@@ -67,18 +67,19 @@ export default function FriendsView({
             </h3>
             <form onSubmit={handleSend} className="space-y-3">
               <div className="relative">
-                <span className="absolute left-3 top-2.5 text-zinc-400 font-bold">@</span>
+                <span className="absolute left-3 top-2.5 text-zinc-400 font-bold">#</span>
                 <input
                   type="text"
                   value={searchId}
-                  onChange={e => setSearchId(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
-                  placeholder="ID Público"
+                  onChange={e => setSearchId(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                  placeholder="ID de 6 cifras"
+                  maxLength={6}
                   className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-2 pl-8 pr-4 text-sm outline-none focus:border-emerald-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
                 />
               </div>
               <button
                 type="submit"
-                disabled={!searchId.trim() || sending}
+                disabled={searchId.trim().length !== 6 || sending}
                 className="w-full rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white shadow-md shadow-emerald-500/20 transition hover:bg-emerald-700 disabled:opacity-50"
               >
                 {sending ? "Enviando..." : "Enviar Solicitud"}
@@ -111,7 +112,7 @@ export default function FriendsView({
                       {req.solicitante.nombre}
                     </div>
                     <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">
-                      @{req.solicitante.id_publico}
+                      #{req.solicitante.id_publico}
                     </div>
                     <div className="flex gap-2">
                       <button
@@ -147,7 +148,7 @@ export default function FriendsView({
                         {req.receptor.nombre}
                       </span>
                       <span className="text-[10px] text-zinc-500">
-                        @{req.receptor.id_publico}
+                        #{req.receptor.id_publico}
                       </span>
                     </div>
                     <span className="text-[10px] font-semibold text-amber-500 bg-amber-50 dark:bg-amber-500/10 px-2 py-1 rounded">
@@ -193,7 +194,7 @@ export default function FriendsView({
                           </h4>
                         </div>
                         <p className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold mb-3">
-                          @{friendProfile.id_publico}
+                          #{friendProfile.id_publico}
                         </p>
                       </div>
                       

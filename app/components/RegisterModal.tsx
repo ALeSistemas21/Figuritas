@@ -50,37 +50,61 @@ export default function RegisterModal({ currentProfile, onSave, isOpen, onClose 
 
   // Initialize fields if editing
   useEffect(() => {
-    if (isOpen) {
-      fetchProvincias();
-      if (currentProfile) {
-        setNombre(currentProfile.nombre || "");
-        setIdPublico(currentProfile.id_publico || "");
-        setProvinciaId(currentProfile.provincia_id || "");
-        setDepartamentoId(currentProfile.departamento_id || "");
-        setLocalidadId(currentProfile.localidad_id || "");
-        setEscuelaId(currentProfile.escuela_id || null);
-        setNoEscuela(!currentProfile.escuela_id);
-        
-        if (currentProfile.escuela_nombre) {
-          setSelectedSchoolName(currentProfile.escuela_nombre);
-          setSchoolQuery(currentProfile.escuela_nombre);
+    const initProfile = async () => {
+      if (isOpen) {
+        fetchProvincias();
+        if (currentProfile) {
+          setNombre(currentProfile.nombre || "");
+          setIdPublico(currentProfile.id_publico || "");
+          setProvinciaId(currentProfile.provincia_id || "");
+          setDepartamentoId(currentProfile.departamento_id || "");
+          setLocalidadId(currentProfile.localidad_id || "");
+          setEscuelaId(currentProfile.escuela_id || null);
+          setNoEscuela(!currentProfile.escuela_id);
+          
+          if (currentProfile.escuela_nombre) {
+            setSelectedSchoolName(currentProfile.escuela_nombre);
+            setSchoolQuery(currentProfile.escuela_nombre);
+          } else {
+            setSelectedSchoolName("");
+            setSchoolQuery("");
+          }
         } else {
-          setSelectedSchoolName("");
+          setNombre("");
+          setProvinciaId("");
+          setDepartamentoId("");
+          setLocalidades([]);
+          setLocalidadId("");
+          setEscuelaId(null);
+          setNoEscuela(false);
           setSchoolQuery("");
+          setSelectedSchoolName("");
+          
+          // Generate a unique 6-digit number
+          let unique = false;
+          let code = "";
+          let attempts = 0;
+          while (!unique && attempts < 15) {
+            attempts++;
+            code = Math.floor(100000 + Math.random() * 900000).toString();
+            try {
+              const { data, error } = await supabase
+                .from("perfiles")
+                .select("id_publico")
+                .eq("id_publico", code)
+                .maybeSingle();
+              if (!error && !data) {
+                unique = true;
+              }
+            } catch (err) {
+              console.error("Error verifying id_publico uniqueness:", err);
+            }
+          }
+          setIdPublico(code);
         }
-      } else {
-        setNombre("");
-        setIdPublico("");
-        setProvinciaId("");
-        setDepartamentoId("");
-        setLocalidades([]);
-        setLocalidadId("");
-        setEscuelaId(null);
-        setNoEscuela(false);
-        setSchoolQuery("");
-        setSelectedSchoolName("");
       }
-    }
+    };
+    initProfile();
   }, [currentProfile, isOpen]);
 
   // Load provinces on mount
@@ -286,21 +310,17 @@ export default function RegisterModal({ currentProfile, onSave, isOpen, onClose 
           {/* ID Publico Input */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1.5">
-              ID Público (para añadir amigos)
+              ID de Usuario (Generado aleatoriamente)
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-2.5 text-zinc-400 font-bold">@</span>
+              <span className="absolute left-3 top-2.5 text-zinc-400 font-bold">#</span>
               <input
                 type="text"
                 required
+                disabled
                 value={idPublico}
-                onChange={e => {
-                  // Solo permitir alfanuméricos y guiones bajos
-                  const val = e.target.value.replace(/[^a-zA-Z0-9_]/g, '');
-                  setIdPublico(val);
-                }}
-                placeholder="ej. martin123"
-                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 pl-8 pr-4 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-emerald-500 focus:bg-white dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:border-emerald-500"
+                placeholder="Generando..."
+                className="w-full rounded-xl border border-zinc-200 bg-zinc-100 py-2.5 pl-8 pr-4 text-sm text-zinc-500 cursor-not-allowed dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 outline-none"
               />
             </div>
           </div>

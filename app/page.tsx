@@ -2,8 +2,13 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "./utils/supabaseClient";
+import { auth, isFirebaseConfigured } from "./utils/firebase";
+import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
+import { getUUIDv5 } from "./utils/uuidv5";
 import Header from "./components/Header";
 import RegisterModal from "./components/RegisterModal";
+import AuthView from "./components/AuthView";
+import FirebaseSetupWarning from "./components/FirebaseSetupWarning";
 import DashboardView from "./components/DashboardView";
 import AlbumView from "./components/AlbumView";
 import MatchView from "./components/MatchView";
@@ -37,6 +42,9 @@ interface Profile {
 }
 
 export default function Page() {
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   const [myProfile, setMyProfile] = useState<Profile | null>(null);
   const [myCollection, setMyCollection] = useState<{ [stickerId: string]: number }>({});
   const [collectors, setCollectors] = useState<any[]>([]);
@@ -59,15 +67,33 @@ export default function Page() {
   // Profile modal visibility
   const [showProfileModal, setShowProfileModal] = useState(false);
 
-  // 1. Initial Load: Check localStorage and fetch profile
+  // 1. Initial Load: Listen to Firebase Authentication state changes
   useEffect(() => {
-    const profileId = localStorage.getItem("figumatch_profile_id");
-    if (profileId) {
-      loadProfileAndData(profileId);
-    } else {
+    if (!isFirebaseConfigured || !auth) {
       setInitializing(false);
-      setShowProfileModal(true);
+      setAuthLoading(false);
+      return;
     }
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setFirebaseUser(user);
+      if (user) {
+        // Derive standard UUID v5 from Firebase UID
+        const derivedUuid = await getUUIDv5(user.uid);
+        await loadProfileAndData(derivedUuid);
+      } else {
+        setMyProfile(null);
+        setMyCollection({});
+        setCollectors([]);
+        setProposals([]);
+        setFriends([]);
+        setFriendRequests([]);
+        setInitializing(false);
+      }
+      setAuthLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const loadProfileAndData = async (profileId: string) => {
@@ -88,8 +114,7 @@ export default function Page() {
 
       if (profileErr) {
         if (profileErr.code === "PGRST116") {
-          // Profile not found in DB, clear localStorage and show modal
-          localStorage.removeItem("figumatch_profile_id");
+          // Profile not found in DB, show registration modal
           setShowProfileModal(true);
           setInitializing(false);
           return;
@@ -385,13 +410,11 @@ export default function Page() {
 
   // Save profile info (Register or edit)
   const handleSaveProfile = async (profileData: any) => {
+    if (!auth || !auth.currentUser) return;
     setSavingProfile(true);
     try {
-      let profileId = localStorage.getItem("figumatch_profile_id");
-      if (!profileId) {
-        // Generate new uuid for profile
-        profileId = crypto.randomUUID();
-      }
+      // Use deterministic UUID v5 from Firebase UID
+      const profileId = await getUUIDv5(auth.currentUser.uid);
 
       const payload = {
         id: profileId,
@@ -410,7 +433,6 @@ export default function Page() {
 
       if (error) throw error;
 
-      localStorage.setItem("figumatch_profile_id", profileId);
       await loadProfileAndData(profileId);
     } catch (err) {
       console.error("Error saving profile:", err);
@@ -633,15 +655,13 @@ export default function Page() {
   };
 
   // Logout/clear session
-  const handleLogout = () => {
-    localStorage.removeItem("figumatch_profile_id");
-    setMyProfile(null);
-    setMyCollection({});
-    setCollectors([]);
-    setProposals([]);
-    setFriends([]);
-    setFriendRequests([]);
-    setShowProfileModal(true);
+  const handleLogout = async () => {
+    try {
+      await auth?.signOut();
+      // State is automatically cleaned up in onAuthStateChanged
+    } catch (err) {
+      console.error("Error signing out:", err);
+    }
   };
 
   // Generate mock users and randomize their collections
@@ -778,6 +798,7 @@ export default function Page() {
         mockProfiles.map(p => 
           supabase.from("perfiles").upsert({
             id: p.id,
+            id_publico: Math.floor(100000 + Math.random() * 900000).toString(),
             nombre: p.nombre,
             provincia_id: p.provincia_id,
             departamento_id: p.departamento_id,
@@ -854,13 +875,21 @@ export default function Page() {
     return proposals.filter(p => p.receptor_id === myProfile.id && p.estado === "pendiente").length;
   }, [proposals, myProfile]);
 
-  if (initializing) {
+  if (!isFirebaseConfigured) {
+    return <FirebaseSetupWarning />;
+  }
+
+  if (authLoading || (firebaseUser && initializing)) {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center bg-zinc-50 dark:bg-black">
         <Loader2 className="h-10 w-10 text-emerald-500 animate-spin" />
         <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400 font-semibold">Cargando FiguMatch...</p>
       </div>
     );
+  }
+
+  if (!firebaseUser) {
+    return <AuthView onAuthSuccess={() => {}} />;
   }
 
   return (
@@ -936,14 +965,14 @@ export default function Page() {
       </main>
 
       {/* Bottom Sticky Navigation Bar (Responsive SPA) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200/80 bg-white/95 backdrop-blur-md dark:border-zinc-800/80 dark:bg-zinc-950/95 sm:sticky sm:top-auto sm:bottom-0 sm:border-t-0 sm:border-b sm:h-14">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t-2 border-[var(--color-fwc-cyan)]/30 bg-[var(--color-fwc-blue)]/95 backdrop-blur-md sm:sticky sm:top-auto sm:bottom-0 sm:border-t-0 sm:border-b-2 sm:h-14">
         <div className="mx-auto flex h-16 max-w-md items-center justify-around px-4">
           <button
             onClick={() => setActiveTab("dashboard")}
-            className={`flex flex-col items-center gap-1 text-[10px] font-bold transition ${
+            className={`flex flex-col items-center gap-1 text-[10px] font-black uppercase tracking-wider transition ${
               activeTab === "dashboard"
-                ? "text-emerald-500"
-                : "text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-300"
+                ? "text-[var(--color-fwc-yellow)] drop-shadow-md scale-110"
+                : "text-white/60 hover:text-white"
             }`}
           >
             <Home className="h-5 w-5" />
@@ -952,10 +981,10 @@ export default function Page() {
 
           <button
             onClick={() => setActiveTab("album")}
-            className={`flex flex-col items-center gap-1 text-[10px] font-bold transition ${
+            className={`flex flex-col items-center gap-1 text-[10px] font-black uppercase tracking-wider transition ${
               activeTab === "album"
-                ? "text-emerald-500"
-                : "text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-300"
+                ? "text-[var(--color-fwc-yellow)] drop-shadow-md scale-110"
+                : "text-white/60 hover:text-white"
             }`}
           >
             <Trophy className="h-5 w-5" />
@@ -964,10 +993,10 @@ export default function Page() {
 
           <button
             onClick={() => setActiveTab("matches")}
-            className={`flex flex-col items-center gap-1 text-[10px] font-bold transition ${
+            className={`flex flex-col items-center gap-1 text-[10px] font-black uppercase tracking-wider transition ${
               activeTab === "matches"
-                ? "text-emerald-500"
-                : "text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-300"
+                ? "text-[var(--color-fwc-yellow)] drop-shadow-md scale-110"
+                : "text-white/60 hover:text-white"
             }`}
           >
             <Compass className="h-5 w-5" />
@@ -976,16 +1005,16 @@ export default function Page() {
 
           <button
             onClick={() => setActiveTab("proposals")}
-            className={`flex flex-col items-center gap-1 text-[10px] font-bold transition relative ${
+            className={`flex flex-col items-center gap-1 text-[10px] font-black uppercase tracking-wider transition relative ${
               activeTab === "proposals"
-                ? "text-emerald-500"
-                : "text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-300"
+                ? "text-[var(--color-fwc-yellow)] drop-shadow-md scale-110"
+                : "text-white/60 hover:text-white"
             }`}
           >
             <Send className="h-5 w-5" />
             <span>Mis Tratos</span>
             {pendingProposalsCount > 0 && (
-              <span className="absolute -top-1 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[8px] font-extrabold text-white">
+              <span className="absolute -top-1 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-fwc-red)] text-[8px] font-black text-white shadow-sm ring-2 ring-[var(--color-fwc-blue)]">
                 {pendingProposalsCount}
               </span>
             )}
@@ -993,16 +1022,16 @@ export default function Page() {
 
           <button
             onClick={() => setActiveTab("friends")}
-            className={`flex flex-col items-center gap-1 text-[10px] font-bold transition relative ${
+            className={`flex flex-col items-center gap-1 text-[10px] font-black uppercase tracking-wider transition relative ${
               activeTab === "friends"
-                ? "text-emerald-500"
-                : "text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-300"
+                ? "text-[var(--color-fwc-yellow)] drop-shadow-md scale-110"
+                : "text-white/60 hover:text-white"
             }`}
           >
             <Users className="h-5 w-5" />
             <span>Amigos</span>
             {friendRequests.filter(r => r.receptor_id === myProfile?.id && r.estado === 'pendiente').length > 0 && (
-              <span className="absolute -top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[8px] font-extrabold text-white shadow-sm ring-2 ring-white dark:ring-zinc-950">
+              <span className="absolute -top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-fwc-red)] text-[8px] font-black text-white shadow-sm ring-2 ring-[var(--color-fwc-blue)]">
                 {friendRequests.filter(r => r.receptor_id === myProfile?.id && r.estado === 'pendiente').length}
               </span>
             )}

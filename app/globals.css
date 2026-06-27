@@ -1,26 +1,67 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  
+  /* Mundial 2026 Colors */
+  --color-fwc-blue: #004D98;
+  --color-fwc-red: #E31B23;
+  --color-fwc-green: #00A651;
+  --color-fwc-yellow: #F7D117;
+  --color-fwc-purple: #A3238E;
+  --color-fwc-orange: #F37021;
+  --color-fwc-cyan: #7CB9E8;
+
+  --font-sans: var(--font-primary), Arial, Helvetica, sans-serif;
+}
+
+:root {
+  --background: #fdfdfd;
+  --foreground: #1a1a1a;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0f1219;
+    --foreground: #f1f1f1;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(0, 77, 152, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(227, 27, 35, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(0, 166, 81, 0.15) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(247, 209, 23, 0.15) 0px, transparent 50%);
+  background-attachment: fixed;
+}
+
+/* Glassmorphism utility */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  .glass-panel {
+    background: rgba(20, 24, 32, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Sticker Card Styling */
+.sticker-card {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease-out;
+}
+.sticker-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -5px rgba(0, 0, 0, 0.1);
 }

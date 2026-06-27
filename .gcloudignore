@@ -1,0 +1,14 @@
+# Ignore git and IDE files
+.git
+.gitignore
+.mcp.json
+
+# Ignore build and dependency folders
+node_modules/
+.next/
+out/
+build/
+venv/
+
+# Do NOT ignore .env files so they can be read by Cloud Build during npm run build
+!.env.local
