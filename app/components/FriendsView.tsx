@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Search, UserPlus, UserCheck, UserX, Clock, Eye, AlertCircle, CheckCircle2 } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
+import { toast } from "sonner";
 
 interface FriendsViewProps {
   myProfile: any;
@@ -27,20 +28,20 @@ export default function FriendsView({
 }: FriendsViewProps) {
   const [searchId, setSearchId] = useState("");
   const [sending, setSending] = useState(false);
-  const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchId.trim()) return;
     
     setSending(true);
-    setFeedback(null);
     const result = await onSendRequest(searchId.trim().toLowerCase());
-    setFeedback({ type: result.success ? "success" : "error", msg: result.message });
-    if (result.success) setSearchId("");
+    if (result.success) {
+      toast.success(result.message);
+      setSearchId("");
+    } else {
+      toast.error(result.message);
+    }
     setSending(false);
-    
-    setTimeout(() => setFeedback(null), 5000);
   };
 
   const receivedRequests = requests.filter(r => r.receptor_id === myProfile?.id && r.estado === 'pendiente');
@@ -82,20 +83,8 @@ export default function FriendsView({
                 disabled={searchId.trim().length !== 6 || sending}
                 className="w-full rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white shadow-md shadow-emerald-500/20 transition hover:bg-emerald-700 disabled:opacity-50"
               >
-                {sending ? "Enviando..." : "Enviar Solicitud"}
               </button>
             </form>
-            
-            {feedback && (
-              <div className={`mt-3 flex items-start gap-2 rounded-lg p-3 text-xs font-semibold ${
-                feedback.type === "success" 
-                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400" 
-                  : "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400"
-              }`}>
-                {feedback.type === "success" ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
-                <p>{feedback.msg}</p>
-              </div>
-            )}
           </div>
 
           {/* Pending Requests Received */}

@@ -24,19 +24,13 @@ interface DashboardViewProps {
   };
   pendingProposalsCount: number;
   onNavigate: (view: string) => void;
-  mockUsersCount: number;
-  onGenerateMockUsers: () => void;
-  generatingMock: boolean;
 }
 
 export default function DashboardView({
   profile,
   stats,
   pendingProposalsCount,
-  onNavigate,
-  mockUsersCount,
-  onGenerateMockUsers,
-  generatingMock
+  onNavigate
 }: DashboardViewProps) {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -204,36 +198,6 @@ export default function DashboardView({
               ) : (
                 <span className="text-xs text-zinc-400">Ninguno</span>
               )}
-            </div>
-
-            {/* Mock Data Generator */}
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
-                  <UserCheck className="h-4.5 w-4.5" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-50">Coleccionistas en la Red</h4>
-                  <p className="text-[10px] text-zinc-400 dark:text-zinc-500">
-                    {mockUsersCount} perfiles simulados cargados
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={onGenerateMockUsers}
-                disabled={generatingMock}
-                className="w-full flex items-center justify-center gap-2 rounded-xl border border-zinc-200/80 bg-zinc-50 py-2.5 text-xs font-bold text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-850"
-              >
-                {generatingMock ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    <span>Cargando Coleccionistas...</span>
-                  </>
-                ) : (
-                  <span>Generar Coleccionistas Simulados</span>
-                )}
-              </button>
             </div>
           </div>
         </div>

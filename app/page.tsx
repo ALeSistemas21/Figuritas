@@ -17,6 +17,7 @@ import FriendsView from "./components/FriendsView";
 import { TOTAL_STICKERS_COUNT } from "./utils/figuData";
 import { Trophy, Compass, Send, Home, Loader2, Users } from "lucide-react";
 import confetti from "canvas-confetti";
+import { toast } from "sonner";
 
 const getJoinedName = (field: any): string => {
   if (!field) return "";
@@ -62,7 +63,6 @@ export default function Page() {
   const [loadingMatches, setLoadingMatches] = useState(false);
   const [loadingProposals, setLoadingProposals] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [generatingMock, setGeneratingMock] = useState(false);
 
   // Profile modal visibility
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -168,6 +168,59 @@ export default function Page() {
       setInitializing(false);
     }
   };
+
+  // Real-time subscriptions for Notifications
+  useEffect(() => {
+    if (!myProfile?.id) return;
+
+    const channel = supabase
+      .channel("user-notifications")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "propuestas", filter: `receptor_id=eq.${myProfile.id}` },
+        (payload) => {
+          toast.success("¡Nueva propuesta de intercambio recibida!");
+          fetchProposals(myProfile.id);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "propuestas", filter: `solicitante_id=eq.${myProfile.id}` },
+        (payload) => {
+          if (payload.new.estado === "aceptado") {
+            toast.success("¡Alguien aceptó tu propuesta de intercambio!");
+            fetchProposals(myProfile.id);
+            fetchCollectors(myProfile);
+          } else if (payload.new.estado === "rechazado") {
+            toast.error("Tu propuesta de intercambio fue rechazada.");
+            fetchProposals(myProfile.id);
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "amistades", filter: `receptor_id=eq.${myProfile.id}` },
+        (payload) => {
+          toast.success("¡Nueva solicitud de amistad recibida!");
+          fetchFriends(myProfile.id);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "amistades", filter: `solicitante_id=eq.${myProfile.id}` },
+        (payload) => {
+          if (payload.new.estado === "aceptada") {
+            toast.success("¡Tu solicitud de amistad fue aceptada!");
+            fetchFriends(myProfile.id);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [myProfile?.id]);
 
   // Fetch active collectors
   const fetchCollectors = async (profile: any) => {
@@ -502,28 +555,10 @@ export default function Page() {
 
       await fetchProposals(myProfile.id);
       setActiveTab("proposals");
-      
-      // Auto-simulate a response after 4 seconds to make the app interactive!
-      setTimeout(() => {
-        simulateProposalAcceptance();
-      }, 4000);
+      toast.success("Propuesta enviada correctamente");
     } catch (err) {
       console.error("Error proposing trade:", err);
-    }
-  };
-
-  // Simulate acceptance of a pending sent proposal for demo purposes
-  const simulateProposalAcceptance = async () => {
-    if (!myProfile) return;
-    try {
-      // Find the first pending sent proposal
-      const pendingSent = proposals.find(p => p.solicitante_id === myProfile.id && p.estado === "pendiente");
-      if (!pendingSent) return;
-
-      // Execute acceptance logic
-      await handleAcceptProposal(pendingSent.id);
-    } catch (err) {
-      console.error("Error simulating proposal acceptance:", err);
+      toast.error("Error al enviar propuesta");
     }
   };
 
@@ -565,7 +600,7 @@ export default function Page() {
         if (senderMissingDups.length > 0) reason += "El solicitante ya no tiene repetidas algunas figuritas ofrecidas. ";
         if (receiverMissingDups.length > 0) reason += "Tú ya no tienes repetidas algunas figuritas solicitadas. ";
         
-        alert(`No se puede completar el trato:\n${reason}\nEl trato será cancelado automáticamente.`);
+        toast.error(`No se puede completar el trato: ${reason}. El trato será cancelado automáticamente.`);
         
         // Auto-cancel the invalid proposal
         await supabase.from("propuestas").update({ estado: "cancelado" }).eq("id", proposalId);
@@ -624,9 +659,11 @@ export default function Page() {
         });
         setMyCollection(newMyCollection);
       }
+      
+      toast.success("¡Trato aceptado! Las figuritas fueron intercambiadas.");
     } catch (err) {
       console.error("Error accepting proposal:", err);
-      alert("Hubo un error al aceptar el trato. Por favor, intenta nuevamente.");
+      toast.error("Hubo un error al aceptar el trato. Por favor, intenta nuevamente.");
     }
   };
 
@@ -637,8 +674,10 @@ export default function Page() {
         .update({ estado: "rechazado" })
         .eq("id", proposalId);
       if (myProfile) fetchProposals(myProfile.id);
+      toast.success("Propuesta rechazada");
     } catch (err) {
       console.error("Error rejecting proposal:", err);
+      toast.error("Error al rechazar propuesta");
     }
   };
 
@@ -649,8 +688,10 @@ export default function Page() {
         .update({ estado: "cancelado" })
         .eq("id", proposalId);
       if (myProfile) fetchProposals(myProfile.id);
+      toast.success("Propuesta cancelada");
     } catch (err) {
       console.error("Error cancelling proposal:", err);
+      toast.error("Error al cancelar propuesta");
     }
   };
 
@@ -661,195 +702,6 @@ export default function Page() {
       // State is automatically cleaned up in onAuthStateChanged
     } catch (err) {
       console.error("Error signing out:", err);
-    }
-  };
-
-  // Generate mock users and randomize their collections
-  const handleGenerateMockUsers = async () => {
-    if (!myProfile) return;
-    setGeneratingMock(true);
-    try {
-      // Define 5 mock users at different locations relative to ours
-      const mockProfiles = [
-        {
-          id: crypto.randomUUID(),
-          nombre: "Sofía (Misma Escuela)",
-          provincia_id: myProfile.provincia_id,
-          departamento_id: myProfile.departamento_id,
-          localidad_id: myProfile.localidad_id,
-          escuela_id: myProfile.escuela_id, // Same school
-          completitud: 68
-        },
-        {
-          id: crypto.randomUUID(),
-          nombre: "Martín (Misma Ciudad)",
-          provincia_id: myProfile.provincia_id,
-          departamento_id: myProfile.departamento_id,
-          localidad_id: myProfile.localidad_id,
-          escuela_id: null, // Different school, same city
-          completitud: 45
-        },
-        {
-          id: crypto.randomUUID(),
-          nombre: "Lucas (Mismo Departamento)",
-          provincia_id: myProfile.provincia_id,
-          departamento_id: myProfile.departamento_id,
-          localidad_id: null, // Sibling locality of the department
-          escuela_id: null,
-          completitud: 32
-        },
-        {
-          id: crypto.randomUUID(),
-          nombre: "Mateo (Misma Provincia)",
-          provincia_id: myProfile.provincia_id,
-          departamento_id: null, // Sibling department
-          localidad_id: null,
-          escuela_id: null,
-          completitud: 53
-        },
-        {
-          id: crypto.randomUUID(),
-          nombre: "Victoria (Nivel Nacional)",
-          provincia_id: null, // Different province
-          departamento_id: null,
-          localidad_id: null,
-          escuela_id: null,
-          completitud: 78
-        }
-      ];
-
-      // Fix random localidades for Lucas (same department, different city)
-      const { data: siblingLocs } = await supabase
-        .from("localidades")
-        .select("id")
-        .eq("departamento_id", myProfile.departamento_id)
-        .neq("id", myProfile.localidad_id)
-        .limit(5);
-
-      if (siblingLocs && siblingLocs.length > 0) {
-        mockProfiles[2].localidad_id = siblingLocs[Math.floor(Math.random() * siblingLocs.length)].id;
-      } else {
-        mockProfiles[2].localidad_id = myProfile.localidad_id;
-      }
-
-      // Fix random department and locality for Mateo (same province, different department)
-      const { data: siblingDepts } = await supabase
-        .from("departamentos")
-        .select("id")
-        .eq("provincia_id", myProfile.provincia_id)
-        .neq("id", myProfile.departamento_id)
-        .limit(5);
-
-      if (siblingDepts && siblingDepts.length > 0) {
-        const siblingDeptId = siblingDepts[Math.floor(Math.random() * siblingDepts.length)].id;
-        mockProfiles[3].departamento_id = siblingDeptId;
-        
-        const { data: siblingDeptLocs } = await supabase
-          .from("localidades")
-          .select("id")
-          .eq("departamento_id", siblingDeptId)
-          .limit(5);
-
-        if (siblingDeptLocs && siblingDeptLocs.length > 0) {
-          mockProfiles[3].localidad_id = siblingDeptLocs[Math.floor(Math.random() * siblingDeptLocs.length)].id;
-        } else {
-          mockProfiles[3].localidad_id = myProfile.localidad_id;
-        }
-      } else {
-        mockProfiles[3].departamento_id = myProfile.departamento_id;
-        mockProfiles[3].localidad_id = myProfile.localidad_id;
-      }
-
-      // Fix random province, department and city for Victoria
-      const { data: randomProvs } = await supabase
-        .from("provincias")
-        .select("id")
-        .neq("id", myProfile.provincia_id)
-        .limit(5);
-
-      if (randomProvs && randomProvs.length > 0) {
-        const otherProvId = randomProvs[Math.floor(Math.random() * randomProvs.length)].id;
-        mockProfiles[4].provincia_id = otherProvId;
-        
-        const { data: otherDepts } = await supabase
-          .from("departamentos")
-          .select("id")
-          .eq("provincia_id", otherProvId)
-          .limit(5);
-          
-        if (otherDepts && otherDepts.length > 0) {
-          const otherDeptId = otherDepts[Math.floor(Math.random() * otherDepts.length)].id;
-          mockProfiles[4].departamento_id = otherDeptId;
-          
-          const { data: otherLocs } = await supabase
-            .from("localidades")
-            .select("id")
-            .eq("departamento_id", otherDeptId)
-            .limit(5);
-            
-          if (otherLocs && otherLocs.length > 0) {
-            mockProfiles[4].localidad_id = otherLocs[Math.floor(Math.random() * otherLocs.length)].id;
-          }
-        }
-      }
-
-      // Upsert mock profiles
-      await Promise.all(
-        mockProfiles.map(p => 
-          supabase.from("perfiles").upsert({
-            id: p.id,
-            id_publico: Math.floor(100000 + Math.random() * 900000).toString(),
-            nombre: p.nombre,
-            provincia_id: p.provincia_id,
-            departamento_id: p.departamento_id,
-            localidad_id: p.localidad_id,
-            escuela_id: p.escuela_id,
-            completitud: p.completitud
-          })
-        )
-      );
-
-      // Generate random collections for them
-      // We will add random key stickers (like ARG10, BRA7, FRA10, and others) as duplicates or owned
-      const keyStickers = [
-        "ARG1", "ARG4", "ARG9", "ARG10", "ARG11", 
-        "BRA7", "BRA10", "BRA11",
-        "FRA7", "FRA10", "FRA11",
-        "POR7", "POR10",
-        "ESP8", "ESP10", "ESP11",
-        "ENG9", "ENG10",
-        "GER10", "GER11",
-        "URU8", "URU9", "URU11",
-        "COL7", "COL10",
-        "FWC00", "FWC1", "FWC2", "FWC5",
-        "CC1", "CC10"
-      ];
-
-      const collRows: any[] = [];
-      mockProfiles.forEach(p => {
-        keyStickers.forEach(stId => {
-          // 40% chance of having it
-          if (Math.random() < 0.4) {
-            // 20% chance of it being duplicate
-            const qty = Math.random() < 0.2 ? 3 : 1;
-            collRows.push({
-              perfil_id: p.id,
-              sticker_id: stId,
-              cantidad: qty
-            });
-          }
-        });
-      });
-
-      if (collRows.length > 0) {
-        await supabase.from("colecciones").upsert(collRows);
-      }
-
-      await fetchCollectors(myProfile);
-    } catch (err) {
-      console.error("Error generating mock users:", err);
-    } finally {
-      setGeneratingMock(false);
     }
   };
 
@@ -909,9 +761,6 @@ export default function Page() {
             stats={myCollectionStats}
             pendingProposalsCount={pendingProposalsCount}
             onNavigate={(view) => setActiveTab(view as any)}
-            mockUsersCount={collectors.length}
-            onGenerateMockUsers={handleGenerateMockUsers}
-            generatingMock={generatingMock}
           />
         )}
 
