@@ -46,3 +46,14 @@ venv/
 
 # MCP settings containing local tokens/configs
 .mcp.json
+
+# Stickers
+stickers/
+
+# Temp recovery
+temp_recovery/
+/public/temp_recovery/
+
+
+scratch/
+*.traineddata

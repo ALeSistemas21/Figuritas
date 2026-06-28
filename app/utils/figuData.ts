@@ -5,58 +5,7 @@ export interface Section {
   isSpecial?: boolean;
 }
 
-export const SECTIONS: Section[] = [
-  { code: "FWC", name: "FIFA World Cup", flag: "🏆", isSpecial: true },
-  { code: "ARG", name: "Argentina", flag: "🇦🇷" },
-  { code: "BRA", name: "Brasil", flag: "🇧🇷" },
-  { code: "FRA", name: "Francia", flag: "🇫🇷" },
-  { code: "GER", name: "Alemania", flag: "🇩🇪" },
-  { code: "ESP", name: "España", flag: "🇪🇸" },
-  { code: "ENG", name: "Inglaterra", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
-  { code: "POR", name: "Portugal", flag: "🇵🇹" },
-  { code: "ITA", name: "Italia", flag: "🇮🇹" },
-  { code: "URU", name: "Uruguay", flag: "🇺🇾" },
-  { code: "COL", name: "Colombia", flag: "🇨🇴" },
-  { code: "MEX", name: "México", flag: "🇲🇽" },
-  { code: "USA", name: "Estados Unidos", flag: "🇺🇸" },
-  { code: "CAN", name: "Canadá", flag: "🇨🇦" },
-  { code: "NED", name: "Países Bajos", flag: "🇳🇱" },
-  { code: "BEL", name: "Bélgica", flag: "🇧🇪" },
-  { code: "CRO", name: "Croacia", flag: "🇭🇷" },
-  { code: "JPN", name: "Japón", flag: "🇯🇵" },
-  { code: "MAR", name: "Marruecos", flag: "🇲🇦" },
-  { code: "SEN", name: "Senegal", flag: "🇸🇳" },
-  { code: "KOR", name: "Corea del Sur", flag: "🇰🇷" },
-  { code: "SUI", name: "Suiza", flag: "🇨🇭" },
-  { code: "SWE", name: "Suecia", flag: "🇸🇪" },
-  { code: "DEN", name: "Dinamarca", flag: "🇩🇰" },
-  { code: "ECU", name: "Ecuador", flag: "🇪🇨" },
-  { code: "PAR", name: "Paraguay", flag: "🇵🇾" },
-  { code: "CHI", name: "Chile", flag: "🇨🇱" },
-  { code: "PER", name: "Perú", flag: "🇵🇪" },
-  { code: "AUS", name: "Australia", flag: "🇦🇺" },
-  { code: "KSA", name: "Arabia Saudita", flag: "🇸🇦" },
-  { code: "GHA", name: "Ghana", flag: "🇬🇭" },
-  { code: "CMR", name: "Camerún", flag: "🇨🇲" },
-  { code: "TUN", name: "Túnez", flag: "🇹🇳" },
-  { code: "EGY", name: "Egipto", flag: "🇪🇬" },
-  { code: "NGA", name: "Nigeria", flag: "🇳🇬" },
-  { code: "CRC", name: "Costa Rica", flag: "🇨🇷" },
-  { code: "PAN", name: "Panamá", flag: "🇵🇦" },
-  { code: "HON", name: "Honduras", flag: "🇭🇳" },
-  { code: "JAM", name: "Jamaica", flag: "🇯🇲" },
-  { code: "RSA", name: "Sudáfrica", flag: "🇿🇦" },
-  { code: "ALG", name: "Argelia", flag: "🇩🇿" },
-  { code: "CIV", name: "Costa de Marfil", flag: "🇨🇮" },
-  { code: "NZL", name: "Nueva Zelanda", flag: "🇳🇿" },
-  { code: "CZE", name: "República Checa", flag: "🇨🇿" },
-  { code: "NOR", name: "Noruega", flag: "🇳🇴" },
-  { code: "AUT", name: "Austria", flag: "🇦🇹" },
-  { code: "TUR", name: "Turquía", flag: "🇹🇷" },
-  { code: "SCO", name: "Escocia", flag: "🏴󠁧󠁢󠁳󠁣󠁴󠁿" },
-  { code: "POL", name: "Polonia", flag: "🇵🇱" },
-  { code: "CC", name: "Coca-Cola Special", flag: "🥤", isSpecial: true }
-];
+
 
 export const STAR_PLAYERS: { [key: string]: string } = {
   // FWC
@@ -183,4 +132,4 @@ export function getStickersForSection(sectionCode: string): { id: string; num: s
   return stickers;
 }
 
-export const TOTAL_STICKERS_COUNT = 994; // FWC (20) + CC (14) + 48 countries * 20 = 960 + 34 = 994
+export const TOTAL_STICKERS_COUNT = 992; // Actual amount according to official Panini list
