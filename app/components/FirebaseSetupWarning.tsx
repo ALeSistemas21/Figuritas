@@ -101,7 +101,7 @@ export default function FirebaseSetupWarning() {
         <div className="flex items-center justify-between border-t border-white/10 pt-6 text-[11px] text-zinc-500">
           <div className="flex items-center gap-1.5">
             <Shield className="h-3.5 w-3.5 text-zinc-400" />
-            <span>FiguMatch utiliza autenticación segura integrada con Supabase.</span>
+            <span>FiguMatch utiliza autenticación segura integrada con Google Firebase.</span>
           </div>
         </div>
 
