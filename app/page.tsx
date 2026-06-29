@@ -215,6 +215,22 @@ export default function Page() {
           }
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "colecciones" },
+        (payload) => {
+          const newRow = payload.new as any;
+          if (newRow && newRow.perfil_id === myProfile.id) {
+            setMyCollection(prev => ({
+              ...prev,
+              [newRow.sticker_id]: newRow.cantidad
+            }));
+          } else {
+            // Refrescar coleccionistas para actualizar porcentajes de match si alguien más cambió su colección
+            fetchCollectors(myProfile);
+          }
+        }
+      )
       .subscribe();
 
     return () => {

@@ -83,6 +83,7 @@ export default function FriendsView({
                 disabled={searchId.trim().length !== 6 || sending}
                 className="w-full rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white shadow-md shadow-emerald-500/20 transition hover:bg-emerald-700 disabled:opacity-50"
               >
+                {sending ? "Enviando..." : "Enviar Solicitud"}
               </button>
             </form>
           </div>

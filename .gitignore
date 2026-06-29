@@ -57,3 +57,11 @@ temp_recovery/
 
 scratch/
 *.traineddata
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
