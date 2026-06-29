@@ -69,12 +69,12 @@ export default function DashboardView({
             <Trophy className="h-5 w-5 text-amber-500" />
           </div>
           <p className="mt-2 text-2xl font-extrabold text-zinc-950 dark:text-zinc-50">
-            {profile?.completitud}%
+            {stats.total > 0 ? Math.round((stats.owned / stats.total) * 100) : 0}%
           </p>
           <div className="mt-3.5 h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800">
             <div 
               className="h-full rounded-full bg-amber-500 transition-all duration-500"
-              style={{ width: `${profile?.completitud}%` }}
+              style={{ width: `${stats.total > 0 ? Math.round((stats.owned / stats.total) * 100) : 0}%` }}
             />
           </div>
         </div>

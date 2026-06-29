@@ -77,7 +77,6 @@ npx playwright test --ui
 
 ## 📸 Capturas de Pantalla
 
-*(Nota: Agrega aquí las imágenes reales de tu aplicación una vez desplegada)*
 
 | Pantalla Principal (Dashboard) | Álbum Virtual |
 | :---: | :---: |
