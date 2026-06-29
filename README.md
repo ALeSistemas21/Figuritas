@@ -81,9 +81,9 @@ npx playwright test --ui
 
 | Pantalla Principal (Dashboard) | Álbum Virtual |
 | :---: | :---: |
-| *(Reemplazar con imagen dashboard.png)* | *(Reemplazar con imagen album.png)* |
+| ![Dashboard](./docs/assets/dashboard.png) | ![Álbum](./docs/assets/album.png) |
 | **Búsqueda de Matches** | **Gestión de Propuestas** |
-| *(Reemplazar con imagen matches.png)* | *(Reemplazar con imagen propuestas.png)* |
+| ![Matches](./docs/assets/matches.png) | ![Propuestas](./docs/assets/propuestas.png) |
 
 ---
 *Desarrollado como Trabajo Final Integrador para el curso "Desarrollo de Aplicaciones Web con Inteligencia Artificial".*
