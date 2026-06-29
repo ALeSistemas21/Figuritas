@@ -49,12 +49,18 @@ Sigue estos pasos para clonar y ejecutar el proyecto en tu entorno local:
     NEXT_PUBLIC_FIREBASE_APP_ID="tu_firebase_app_id"
     ```
 
-4.  **Ejecutar el servidor de desarrollo:**
+4.  **Configurar la Base de Datos (Supabase):**
+    Dado que el proyecto utiliza Supabase, las tablas de la base de datos no se crean automáticamente al arrancar el proyecto. Debes crearlas manualmente.
+    - Abre tu panel de control de Supabase (SQL Editor).
+    - Copia todo el contenido del archivo `schema.sql` (incluido en la raíz de este proyecto).
+    - Pégalo en el editor SQL de Supabase y ejecútalo. Esto creará las tablas `perfiles`, `colecciones`, `amistades` y `propuestas`, y habilitará el *Realtime* en ellas.
+
+5.  **Ejecutar el servidor de desarrollo:**
     ```bash
     npm run dev
     ```
 
-5.  **Abrir en el navegador:**
+6.  **Abrir en el navegador:**
     Visita [http://localhost:3000](http://localhost:3000) para ver la aplicación en funcionamiento.
 
 ## 🧪 Ejecutar Pruebas (Testing)
